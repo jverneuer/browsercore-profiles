@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getProfile } from "../src/index.js";
+import { getProfile, listProfiles } from "../src/index.js";
 import type { ProfileId } from "../src/types.js";
 import {
     buildExpectedClientHello,
     validateProfileAgainstCapture,
+    ValidationError,
 } from "../src/validate.js";
 import type { TlsCapture } from "../src/validate.js";
 
@@ -106,5 +107,91 @@ describe("validateProfileAgainstCapture", () => {
         expect(result.ok).toBe(false);
         expect(result.diffs.some((d) => d.path === "tls.grease")).toBe(true);
         expect(result.diffs.some((d) => d.path === "tls.cipherSuites[1]")).toBe(true);
+    });
+
+    it("reports a diff when a non-cipher numeric array (extensions) mismatches", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+
+        // Flip the first extension type code.
+        const extensionTypes = [...expected.extensionTypes];
+        extensionTypes[0] = 9999;
+
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.extensionTypes[0]")).toBe(true);
+    });
+
+    it("builds an expected ClientHello for every registered profile", () => {
+        // The cipher/signature lookup tables must cover every value the shipped
+        // profiles use; a missing entry is a latent bug (throws ValidationError).
+        for (const id of listProfiles()) {
+            const profile = getProfile(id);
+            expect(() => buildExpectedClientHello(profile, "example.com")).not.toThrow();
+        }
+    });
+
+    it("maps Firefox cipher suites and signature schemes to IANA codes", () => {
+        const profile = getProfile("firefox-135" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+
+        // Firefox leads with TLS_AES_128_GCM_SHA256 and advertises ed25519 +
+        // rsa_pkcs1_sha1 — schemes Chrome does not offer.
+        expect(expected.cipherSuites[0]).toBe(0x1301);
+        expect(expected.signatureAlgorithms).toContain(0x0807); // ed25519
+        expect(expected.signatureAlgorithms).toContain(0x0201); // rsa_pkcs1_sha1
+    });
+
+    it("maps Safari cipher suites (SHA-256/SHA-384 CBC) to IANA codes", () => {
+        const profile = getProfile("safari-18" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+
+        // Safari's cipher list includes the CBC SHA-256/SHA-384 variants.
+        expect(expected.cipherSuites).toContain(0xc024); // ECDSA AES-256-CBC-SHA384
+        expect(expected.cipherSuites).toContain(0x003c); // RSA AES-128-CBC-SHA256
+        expect(expected.cipherSuites).toContain(0x003d); // RSA AES-256-CBC-SHA256
+    });
+
+    it("throws ValidationError when a profile references an unknown cipher suite", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const bad: typeof profile = {
+            ...profile,
+            tls: { ...profile.tls, cipherSuites: ["NOT_A_REAL_CIPHER"] },
+        };
+
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(ValidationError);
+    });
+
+    it("reports a mismatch when a GREASE cipher slot holds a non-GREASE value", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+
+        // Index 0 is a GREASE slot; a non-GREASE value there must be flagged.
+        const ciphers = [...expected.cipherSuites];
+        ciphers[0] = 0xdead;
+
+        const capture: TlsCapture = {
+            cipherSuites: ciphers,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.cipherSuites[0]")).toBe(true);
     });
 });

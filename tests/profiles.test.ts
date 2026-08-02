@@ -3,6 +3,7 @@ import {
     getProfile,
     listProfiles,
     registerProfile,
+    ProfileError,
     UnknownProfileError,
 } from "../src/index.js";
 import type { BrowserProfile, ProfileId } from "../src/types.js";
@@ -41,6 +42,27 @@ describe("profiles registry", () => {
 
     it("throws UnknownProfileError for an unknown id", () => {
         expect(() => getProfile("opera-1" as ProfileId)).toThrow(UnknownProfileError);
+    });
+
+    it("UnknownProfileError exposes the requested id and kind", () => {
+        try {
+            getProfile("opera-1" as ProfileId);
+            expect.unreachable("expected getProfile to throw");
+        } catch (e) {
+            expect(e).toBeInstanceOf(UnknownProfileError);
+            expect((e as UnknownProfileError).profileId).toBe("opera-1");
+            expect((e as UnknownProfileError).kind).toBe("UnknownProfileError");
+        }
+    });
+
+    it("ProfileError preserves an optional cause", () => {
+        const cause = new Error("root cause");
+        const err = new ProfileError("TestError", "boom", { cause });
+
+        expect(err).toBeInstanceOf(ProfileError);
+        expect(err.kind).toBe("TestError");
+        expect(err.message).toBe("boom");
+        expect(err.cause).toBe(cause);
     });
 
     it("listProfiles is non-empty and contains known ids", () => {

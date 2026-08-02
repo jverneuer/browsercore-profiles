@@ -51,7 +51,7 @@ function isArray(x: unknown): x is readonly DiffNode[] {
 }
 
 /** Append a single diff. */
-function emit(out: ProfileDiff[], path: string, a: unknown, b: unknown): void {
+function emit(out: ProfileDiff[], path: string, a: unknown, b?: unknown): void {
     out.push({ path, a, b });
 }
 
@@ -61,8 +61,12 @@ function unionKeys(
     b: { readonly [key: string]: unknown },
 ): string[] {
     const keys = new Set<string>();
-    for (const k of Object.keys(a)) keys.add(k);
-    for (const k of Object.keys(b)) keys.add(k);
+    for (const k of Object.keys(a)) {
+        keys.add(k);
+    }
+    for (const k of Object.keys(b)) {
+        keys.add(k);
+    }
     return Array.from(keys).sort();
 }
 
@@ -77,7 +81,9 @@ function walk(
     options: DiffOptions,
     out: ProfileDiff[],
 ): void {
-    if (a === b) return;
+    if (a === b) {
+        return;
+    }
 
     const aArr = isArray(a);
     const bArr = isArray(b);
@@ -100,7 +106,7 @@ function walk(
             if (aHas && bHas) {
                 walk(childPath, a[key], b[key], options, out);
             } else if (aHas) {
-                emit(out, childPath, a[key], undefined);
+                emit(out, childPath, a[key]);
             } else {
                 emit(out, childPath, undefined, b[key]);
             }
@@ -132,7 +138,7 @@ function walkArray(
             if (aHas && bHas) {
                 walk(childPath, a[i], b[i], options, out);
             } else if (aHas) {
-                emit(out, childPath, a[i], undefined);
+                emit(out, childPath, a[i]);
             } else {
                 emit(out, childPath, undefined, b[i]);
             }
@@ -145,8 +151,8 @@ function walkArray(
     const sortKey = (v: unknown): string =>
         isObject(v) || isArray(v) ? stableStringify(v) : String(v);
 
-    const sortedA = a.map(sortKey).sort();
-    const sortedB = b.map(sortKey).sort();
+    const sortedA = a.map((v) => sortKey(v)).sort();
+    const sortedB = b.map((v) => sortKey(v)).sort();
 
     let equal = sortedA.length === sortedB.length;
     if (equal) {
@@ -169,7 +175,7 @@ function stableStringify(value: unknown): string {
 
 function sortValue(value: unknown): unknown {
     if (isArray(value)) {
-        return value.map(sortValue);
+        return value.map((v) => sortValue(v));
     }
     if (isObject(value)) {
         const sorted: Record<string, unknown> = {};

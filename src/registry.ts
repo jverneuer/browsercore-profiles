@@ -1,8 +1,10 @@
 /**
  * Profile registry — the single source of truth for known browser fingerprints.
  *
- * Profiles are registered once at module load (via the per-browser map files) and
- * can be extended at runtime through {@link registerProfile}. Lookups are O(1).
+ * Backed by a `Map`, which preserves insertion order, so {@link listProfiles}
+ * returns ids in a stable, deterministic sequence (built-ins first, then any
+ * runtime-registered profiles). Built-in profiles are indexed once at module
+ * evaluation; later {@link registerProfile} calls append or overwrite by id.
  */
 
 import type { BrowserProfile, ProfileId } from "./types.js";

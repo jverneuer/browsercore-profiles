@@ -31,7 +31,7 @@ const safariHttp2Base = {
 } as const;
 
 const safariHttp1Base = {
-    connection: "keep-alive" as const,
+    connection: "keep-alive",
     acceptEncoding: "gzip, deflate, br",
     headerOrder: [
         "host",

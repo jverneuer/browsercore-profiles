@@ -15,10 +15,12 @@ export function assertNever(x: never): never {
     throw new Error(`Unexpected value: ${JSON.stringify(x)}`);
 }
 
+import type { ProfileId } from "./types.js";
+
 /**
  * Build a branded {@link ProfileId} from a browser name + version.
  * Format: `${name}-${version}`, e.g. "chrome-140".
  */
-export function createId(name: string, version: string): string {
-    return `${name}-${version}`;
+export function createId(name: string, version: string): ProfileId {
+    return `${name}-${version}` as ProfileId;
 }

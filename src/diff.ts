@@ -30,9 +30,12 @@ export interface ProfileDiff {
     readonly b: unknown;
 }
 
+/** A structural record that can be recursively diffed (object form of {@link DiffNode}). */
+type DiffRecord = { readonly [key: string]: DiffNode };
+
 /** A structural value that can be recursively diffed. */
 type DiffNode =
-    | { readonly [key: string]: DiffNode }
+    | DiffRecord
     | readonly DiffNode[]
     | string
     | number
@@ -41,7 +44,7 @@ type DiffNode =
     | undefined;
 
 /** Narrow `unknown` to a structural object without relying on `Array.isArray`'s `any` narrowing. */
-function isObject(x: unknown): x is { readonly [key: string]: DiffNode } {
+function isObject(x: unknown): x is DiffRecord {
     return typeof x === "object" && x !== null;
 }
 
@@ -56,10 +59,7 @@ function emit(out: ProfileDiff[], path: string, a: unknown, b?: unknown): void {
 }
 
 /** Sorted union of own-property keys from both objects, for deterministic output. */
-function unionKeys(
-    a: { readonly [key: string]: unknown },
-    b: { readonly [key: string]: unknown },
-): string[] {
+function unionKeys(a: DiffRecord, b: DiffRecord): string[] {
     const keys = new Set<string>();
     for (const k of Object.keys(a)) {
         keys.add(k);
@@ -200,6 +200,6 @@ export function diffProfiles(
     options: DiffOptions = {},
 ): ProfileDiff[] {
     const out: ProfileDiff[] = [];
-    walk("", a as unknown as DiffNode, b as unknown as DiffNode, options, out);
+    walk("", a, b, options, out);
     return out;
 }

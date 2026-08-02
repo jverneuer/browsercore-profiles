@@ -18,6 +18,13 @@
 import type { BrowserProfile } from "./types.js";
 import type { ProfileDiff } from "./diff.js";
 import { ProfileError } from "./errors.js";
+import {
+    CIPHER_GREASE_PLACEHOLDER,
+    CIPHER_SUITE_CODES,
+    NAMED_GROUP_CODES,
+    SIGNATURE_SCHEME_CODES,
+    VERSION_CODES,
+} from "./codes.js";
 
 /** A captured ClientHello, as parsed out of a packet capture by the testing package. */
 export interface TlsCapture {
@@ -56,81 +63,6 @@ export interface ClientHelloExpected {
     readonly sni: string;
 }
 
-/** The name Chrome uses in its cipher list to mark a GREASE slot (RFC 8701). */
-const CIPHER_GREASE_PLACEHOLDER = "TLS_GREASE_RESERVED_0";
-
-/**
- * IANA TLS Cipher Suite Registry — selected codes.
- *
- * Values are the canonical 2-byte wire codes from
- * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
- * Only the suites used by the shipped profiles are mapped; an unknown name is a
- * bug in a profile definition and throws.
- */
-const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = {
-    // GREASE: real value is randomized per-connection (0x0a0a..0xfafa). We use the
-    // first canonical GREASE code for the expected representation; validation
-    // accepts any GREASE-pattern value at a GREASE slot.
-    [CIPHER_GREASE_PLACEHOLDER]: 0x0a0a,
-    TLS_AES_128_GCM_SHA256: 0x1301,
-    TLS_AES_256_GCM_SHA384: 0x1302,
-    TLS_CHACHA20_POLY1305_SHA256: 0x1303,
-    TLS_AES_128_CCM_SHA256: 0x1304,
-    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: 0xc02b,
-    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: 0xc02f,
-    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: 0xc02c,
-    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: 0xc030,
-    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: 0xcca9,
-    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: 0xcca8,
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: 0xc013,
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: 0xc014,
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: 0xc009,
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: 0xc00a,
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: 0xc023,
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: 0xc024,
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: 0xc027,
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: 0xc028,
-    TLS_RSA_WITH_AES_128_GCM_SHA256: 0x009c,
-    TLS_RSA_WITH_AES_256_GCM_SHA384: 0x009d,
-    TLS_RSA_WITH_AES_128_CBC_SHA: 0x002f,
-    TLS_RSA_WITH_AES_256_CBC_SHA: 0x0035,
-    TLS_RSA_WITH_AES_128_CBC_SHA256: 0x003c,
-    TLS_RSA_WITH_AES_256_CBC_SHA256: 0x003d,
-};
-
-/**
- * IANA TLS Supported Groups Registry (named groups) — selected codes.
- * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>
- */
-const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
-    x25519: 0x001d,
-    secp256r1: 0x0017,
-    secp384r1: 0x0018,
-};
-
-/**
- * IANA TLS SignatureScheme Registry — selected codes.
- * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-16>
- */
-const SIGNATURE_SCHEME_CODES: Readonly<Record<string, number>> = {
-    ecdsa_secp256r1_sha256: 0x0403,
-    rsa_pss_rsae_sha256: 0x0804,
-    rsa_pkcs1_sha256: 0x0401,
-    ecdsa_secp384r1_sha384: 0x0503,
-    rsa_pss_rsae_sha384: 0x0805,
-    rsa_pkcs1_sha384: 0x0501,
-    ed25519: 0x0807,
-    rsa_pkcs1_sha1: 0x0201,
-};
-
-/** IANA TLS ProtocolVersion codes for the supported_versions extension. */
-const VERSION_CODES: Readonly<Record<string, number>> = {
-    "TLS 1.3": 0x0304,
-    "TLS 1.2": 0x0303,
-    "TLS 1.1": 0x0302,
-    "TLS 1.0": 0x0301,
-};
-
 /** Validation / projection failure (unknown profile value, bad capture, etc.). */
 export class ValidationError extends ProfileError {
     public override readonly kind = "ValidationError" as const;
@@ -139,6 +71,14 @@ export class ValidationError extends ProfileError {
         super("ValidationError", message, options);
         this.name = "ValidationError";
     }
+}
+
+/** Outcome of validating a profile against a captured ClientHello. */
+export interface ValidationResult {
+    /** True when every field matches (respecting GREASE randomization for cipher suites). */
+    readonly ok: boolean;
+    /** Empty when `ok` is true; otherwise one {@link ProfileDiff} per mismatched field. */
+    readonly diffs: ProfileDiff[];
 }
 
 function lookupCode(
@@ -256,7 +196,7 @@ function diffCipherSuites(
 export function validateProfileAgainstCapture(
     profile: BrowserProfile,
     capture: TlsCapture,
-): { ok: boolean; diffs: ProfileDiff[] } {
+): ValidationResult {
     const expected = buildExpectedClientHello(profile, "");
     const diffs: ProfileDiff[] = [];
 

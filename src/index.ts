@@ -30,6 +30,7 @@ export {
 export type {
     TlsCapture,
     ClientHelloExpected,
+    ValidationResult,
 } from "./validate.js";
 
 export {

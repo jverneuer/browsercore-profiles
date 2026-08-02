@@ -37,7 +37,7 @@ const edgeHttp2Base = {
 } as const;
 
 const edgeHttp1Base = {
-    connection: "keep-alive" as const,
+    connection: "keep-alive",
     acceptEncoding: "gzip, deflate, br",
     headerOrder: [
         "host",

@@ -37,7 +37,7 @@ const chromeHttp2Base = {
 } as const;
 
 const chromeHttp1Base = {
-    connection: "keep-alive" as const,
+    connection: "keep-alive",
     acceptEncoding: "gzip, deflate, br",
     headerOrder: [
         "host",

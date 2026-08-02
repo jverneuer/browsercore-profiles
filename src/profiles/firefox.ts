@@ -35,7 +35,7 @@ const firefoxHttp2Base = {
 } as const;
 
 const firefoxHttp1Base = {
-    connection: "keep-alive" as const,
+    connection: "keep-alive",
     acceptEncoding: "gzip, deflate, br",
     headerOrder: [
         "host",

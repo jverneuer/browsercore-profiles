@@ -67,13 +67,87 @@ registerProfile(myCustomProfile); // extensibility hook
 | `UnknownProfileError` | class | Thrown when a profile id is not found |
 | `ValidationError` | class | Thrown on an unknown profile value or bad capture |
 
+## Shipped profiles
+
+| Browser | Profiles |
+| --- | --- |
+| Chrome | `chrome-120`, `chrome-128`, `chrome-140` |
+| Firefox | `firefox-120`, `firefox-128`, `firefox-135` |
+| Safari | `safari-17`, `safari-18` |
+| Edge | `edge-120`, `edge-128` |
+
 ## Dependency graph
 
 ```
 @browsercore/profiles
 ```
 
-No other `@browsercore/*` packages and no Node built-ins are imported. This is a pure data package.
+No other `@browsercore/*` runtime packages and no Node built-ins are imported. This is a pure data package. `@browsercore/dev` is a dev-only dependency that supplies shared build / lint / test configuration (see [Shared config](#shared-config)).
+
+## Source layout
+
+```
+src/
+├─ index.ts            Public API surface — re-exports from the rest of the package
+├─ index.internal.ts   Barrel re-exporting the per-browser profile maps
+├─ registry.ts         getProfile / listProfiles / registerProfile (Map-backed)
+├─ diff.ts             diffProfiles — field-by-field diff of two profiles
+├─ validate.ts         buildExpectedClientHello / validateProfileAgainstCapture
+├─ codes.ts            IANA TLS registry codes (cipher suites, groups, versions, sig schemes)
+├─ errors.ts           ProfileError / UnknownProfileError / ValidationError
+├─ types.ts            BrowserProfile + per-layer profile interfaces
+├─ utils.ts            assertNever / createId
+└─ profiles/           Per-browser profile definitions
+   ├─ chrome.ts        chrome-120, chrome-128, chrome-140
+   ├─ firefox.ts       firefox-120, firefox-128, firefox-135
+   ├─ safari.ts        safari-17, safari-18
+   └─ edge.ts          edge-120, edge-128
+```
+
+## Development
+
+Requires **Node >= 26**. ESM only (`"type": "module"`).
+
+```sh
+npm install      # installs @browsercore/dev (file:../dev) + siblings
+npm run build    # tsc -p tsconfig.build.json (emit to dist/)
+npm run typecheck
+npm run lint     # oxlint --type-aware src/
+npm test         # vitest run
+```
+
+Run a single test file:
+
+```sh
+npx vitest run tests/profiles.test.ts
+```
+
+Run tests by name pattern:
+
+```sh
+npx vitest run -t "returns a known Chrome profile by id"
+```
+
+Generate a coverage report:
+
+```sh
+npm test -- --coverage
+node ../dev/bin/coverage-md.mjs   # writes COVERAGE.md + coverage/badge.json
+```
+
+### Shared config
+
+This package adopts `@browsercore/dev`, the shared config package for the
+`@browsercore/*` family. Configuration is centralized — this repo only wires it in:
+
+| Concern | Mechanism |
+| --- | --- |
+| TypeScript strict flags | `tsconfig.json` extends `@browsercore/dev/tsconfig.base.json` |
+| Vitest config | `vitest.config.ts` calls `definePackageConfig({ name: "profiles" })` |
+| Oxlint config | `oxlint.config.ts` extends `@browsercore/dev/oxlint` |
+| Coverage report | `coverage-md` bin from `@browsercore/dev` |
+
+`@browsercore/dev` is declared as a devDependency via `"@browsercore/dev": "file:../dev"`.
 
 ## License
 

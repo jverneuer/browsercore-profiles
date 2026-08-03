@@ -7,7 +7,7 @@ Generated from `coverage-summary.json` by `scripts/coverage-md.mjs`.
 | Metric | Coverage |
 | --- | --- |
 | Statements | 100% (1024/1024) |
-| Branches | 100% (92/92) |
+| Branches | 100% (93/93) |
 | Functions | 100% (32/32) |
 | Lines | 100% (1024/1024) |
 
@@ -26,4 +26,4 @@ Generated from `coverage-summary.json` by `scripts/coverage-md.mjs`.
 | `src/profiles/safari.ts` | 100% (127/127) | 100% (0/0) | 100% (0/0) | 100% (127/127) |
 | `src/registry.ts` | 100% (30/30) | 100% (10/10) | 100% (4/4) | 100% (30/30) |
 | `src/utils.ts` | 100% (6/6) | 100% (2/2) | 100% (2/2) | 100% (6/6) |
-| `src/validate.ts` | 100% (107/107) | 100% (22/22) | 100% (12/12) | 100% (107/107) |
+| `src/validate.ts` | 100% (107/107) | 100% (23/23) | 100% (12/12) | 100% (107/107) |

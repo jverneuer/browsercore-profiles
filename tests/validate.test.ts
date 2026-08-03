@@ -195,3 +195,226 @@ describe("validateProfileAgainstCapture", () => {
         expect(result.diffs.some((d) => d.path === "tls.cipherSuites[0]")).toBe(true);
     });
 });
+
+describe("buildExpectedClientHello — projection error paths", () => {
+    // The codes tables double as an allow-list: an unknown name in a profile is a
+    // bug, and projection surfaces it as a ValidationError naming the field.
+    const base = getProfile("chrome-140" as ProfileId);
+
+    it("throws ValidationError naming the cipher suite field on an unknown cipher", () => {
+        const bad = { ...base, tls: { ...base.tls, cipherSuites: ["NOPE"] } } as typeof base;
+        try {
+            buildExpectedClientHello(bad, "example.com");
+            expect.unreachable("expected throw");
+        } catch (e) {
+            expect(e).toBeInstanceOf(ValidationError);
+            expect((e as Error).message).toContain("cipher suite");
+            expect((e as Error).message).toContain("NOPE");
+        }
+    });
+
+    it("throws ValidationError on an unknown named group", () => {
+        const bad = { ...base, tls: { ...base.tls, keyShareGroups: ["no-group"] } } as typeof base;
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(ValidationError);
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(/named group/);
+    });
+
+    it("throws ValidationError on an unknown signature scheme", () => {
+        const bad = {
+            ...base,
+            tls: { ...base.tls, signatureAlgorithms: ["no-sig"] },
+        } as typeof base;
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(ValidationError);
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(/signature scheme/);
+    });
+
+    it("throws ValidationError on an unknown TLS version", () => {
+        const bad = {
+            ...base,
+            tls: { ...base.tls, supportedVersions: ["TLS 9.9"] },
+        } as typeof base;
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(ValidationError);
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(/TLS version/);
+    });
+
+    it("throws on the first bad value only (stops at the offending suite)", () => {
+        // mapCipherSuite throws eagerly, so a bad entry surfaces before later ones.
+        const bad = {
+            ...base,
+            tls: {
+                ...base.tls,
+                cipherSuites: ["TLS_AES_128_GCM_SHA256", "BAD_CIPHER"],
+            },
+        } as typeof base;
+        try {
+            buildExpectedClientHello(bad, "example.com");
+            expect.unreachable("expected throw");
+        } catch (e) {
+            expect((e as Error).message).toContain("BAD_CIPHER");
+        }
+    });
+});
+
+describe("ValidationError", () => {
+    it("has kind 'ValidationError', a descriptive name, and a ProfileError chain", () => {
+        // ValidationError extends ProfileError; confirm its discriminant + name so
+        // callers matching on `kind` / `name` keep working.
+        const cause = new Error("boom");
+        const err = new ValidationError("bad", { cause });
+        expect(err.kind).toBe("ValidationError");
+        expect(err.name).toBe("ValidationError");
+        expect(err.message).toBe("bad");
+        expect(err.cause).toBe(cause);
+        // Falls back to undefined cause when not provided.
+        expect(new ValidationError("bad").cause).toBeUndefined();
+    });
+});
+
+describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
+    it("reports diffs when supportedVersions mismatch", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: [expected.supportedVersions[1], expected.supportedVersions[0]],
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.supportedVersions[0]")).toBe(true);
+        expect(result.diffs.some((d) => d.path === "tls.supportedVersions[1]")).toBe(true);
+    });
+
+    it("reports diffs when keyShareGroups mismatch", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const groups = [...expected.keyShareGroups];
+        groups[0] = 0x0018; // secp384r1 instead of x25519
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: groups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.keyShareGroups[0]")).toBe(true);
+    });
+
+    it("reports diffs when signatureAlgorithms mismatch", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const sigs = [...expected.signatureAlgorithms];
+        sigs[0] = 0x0201; // rsa_pkcs1_sha1 instead of ecdsa_secp256r1_sha256
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: sigs,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.signatureAlgorithms[0]")).toBe(true);
+    });
+
+    it("reports a per-index diff when the capture cipher list is shorter than expected", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            // Drop the trailing two suites — those indices must show as diffs.
+            cipherSuites: expected.cipherSuites.slice(0, -2),
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        const last = expected.cipherSuites.length - 1;
+        expect(result.diffs.some((d) => d.path === `tls.cipherSuites[${last}]`)).toBe(true);
+    });
+
+    it("reports diffs when the capture cipher list is longer than expected", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: [...expected.cipherSuites, 0x1304], // extra TLS_AES_128_CCM_SHA256
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(
+            result.diffs.some((d) => d.path === `tls.cipherSuites[${expected.cipherSuites.length}]`),
+        ).toBe(true);
+    });
+
+    it("accepts a non-GREASE profile (Firefox) against a matching capture", () => {
+        // Firefox has grease:false and no GREASE cipher slot — its happy path must
+        // not depend on GREASE-aware comparison.
+        const profile = getProfile("firefox-135" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: false,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
+    });
+
+    it("accepts the maximum GREASE value 0xfafa in a GREASE cipher slot", () => {
+        // The GREASE range is 0x0a0a..0xfafa in steps of 0x1010; the top end must
+        // be accepted just like the canonical 0x0a0a.
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const ciphers = [...expected.cipherSuites];
+        ciphers[0] = 0xfafa;
+        const capture: TlsCapture = {
+            cipherSuites: ciphers,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+    });
+
+    // BUG (validate.ts:138-140): isGreaseValue matches 0x0000 because
+    // (0 >> 8) === (0 & 0xff). 0x0000 is not a real GREASE value, so a capture
+    // that mistakenly carries 0 at a GREASE slot would be wrongly accepted.
+    it.todo(
+        "reject 0x0000 at a GREASE cipher slot (currently mis-classified as GREASE)",
+    );
+});

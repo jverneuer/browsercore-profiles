@@ -134,9 +134,14 @@ export function buildExpectedClientHello(
     };
 }
 
-/** A 2-byte value matches the GREASE pattern 0x?a?a (high byte === low byte). */
+/**
+ * A 2-byte value matches the GREASE pattern 0x?a?a (high byte === low byte).
+ * RFC 8701 reserves the range 0x0a0a..0xfafa in steps of 0x1010, so values below
+ * 0x0a0a (notably 0x0000) are excluded even though they share the high===low
+ * byte shape.
+ */
 function isGreaseValue(v: number): boolean {
-    return (v >> 8) === (v & 0xff);
+    return v >= 0x0a0a && (v >> 8) === (v & 0xff);
 }
 
 /**

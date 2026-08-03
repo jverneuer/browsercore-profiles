@@ -411,10 +411,26 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
         expect(result.ok).toBe(true);
     });
 
-    // BUG (validate.ts:138-140): isGreaseValue matches 0x0000 because
-    // (0 >> 8) === (0 & 0xff). 0x0000 is not a real GREASE value, so a capture
-    // that mistakenly carries 0 at a GREASE slot would be wrongly accepted.
-    it.todo(
-        "reject 0x0000 at a GREASE cipher slot (currently mis-classified as GREASE)",
-    );
+    it("rejects 0x0000 at a GREASE cipher slot (not a real GREASE value)", () => {
+        // RFC 8701 reserves 0x0a0a..0xfafa in steps of 0x1010; 0x0000 shares the
+        // high===low byte shape but is NOT a GREASE value, so it must be flagged.
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const ciphers = [...expected.cipherSuites];
+        ciphers[0] = 0x0000; // GREASE slot carrying 0x0000
+
+        const capture: TlsCapture = {
+            cipherSuites: ciphers,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.cipherSuites[0]")).toBe(true);
+    });
 });

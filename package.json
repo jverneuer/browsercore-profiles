@@ -1,6 +1,6 @@
 {
     "name": "@browsercore/profiles",
-    "version": "0.1.4",
+    "version": "0.2.0",
     "description": "Browser fingerprint definitions (TLS / HTTP/2 / HTTP/1.1). Pure data — no protocol implementation.",
     "repository": {
         "type": "git",
@@ -38,7 +38,7 @@
         "lint": "oxlint --type-aware src/"
     },
     "devDependencies": {
-        "@browsercore/dev": "^0.1.2",
+        "@browsercore/dev": "^0.2.0",
         "@types/node": "^26.1.2",
         "@vitest/coverage-v8": "^4.1.10",
         "typescript": "^7.0.0",

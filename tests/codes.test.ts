@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+    cipherSuiteToWire,
     CIPHER_GREASE_PLACEHOLDER,
     CIPHER_SUITE_CODES,
     NAMED_GROUP_CODES,
     SIGNATURE_SCHEME_CODES,
     VERSION_CODES,
 } from "../src/codes.js";
+import { ProfileError } from "../src/errors.js";
 
 /**
  * The codes tables are an allow-list: every name a profile may reference must map
@@ -107,5 +109,61 @@ describe("VERSION_CODES", () => {
         // These are part of the allow-list for completeness; ensure they stay correct.
         expect(VERSION_CODES["TLS 1.1"]).toBe(0x0302);
         expect(VERSION_CODES["TLS 1.0"]).toBe(0x0301);
+    });
+});
+
+describe("cipherSuiteToWire", () => {
+    it("maps every name in CIPHER_SUITE_CODES to the same code the table holds", () => {
+        // The function is the projection seam: it must agree exactly with the
+        // allow-list table for every entry, including the GREASE placeholder.
+        for (const [name, code] of Object.entries(CIPHER_SUITE_CODES)) {
+            expect(cipherSuiteToWire(name)).toBe(code);
+        }
+    });
+
+    it("maps the TLS 1.3 AEAD suites to their IANA codes", () => {
+        expect(cipherSuiteToWire("TLS_AES_128_GCM_SHA256")).toBe(0x1301);
+        expect(cipherSuiteToWire("TLS_AES_256_GCM_SHA384")).toBe(0x1302);
+        expect(cipherSuiteToWire("TLS_CHACHA20_POLY1305_SHA256")).toBe(0x1303);
+        expect(cipherSuiteToWire("TLS_AES_128_CCM_SHA256")).toBe(0x1304);
+    });
+
+    it("maps the ECDHE and RSA suites referenced by the shipped profiles", () => {
+        expect(cipherSuiteToWire("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256")).toBe(0xc02b);
+        expect(cipherSuiteToWire("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384")).toBe(0xc030);
+        expect(cipherSuiteToWire("TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256")).toBe(0xcca8);
+        expect(cipherSuiteToWire("TLS_RSA_WITH_AES_128_CBC_SHA")).toBe(0x002f);
+        expect(cipherSuiteToWire("TLS_RSA_WITH_AES_256_CBC_SHA256")).toBe(0x003d);
+    });
+
+    it("maps the GREASE placeholder to its canonical code", () => {
+        expect(cipherSuiteToWire(CIPHER_GREASE_PLACEHOLDER)).toBe(0x0a0a);
+    });
+
+    it("never returns 0x0000 for any mapped suite", () => {
+        // 0x0000 collides with TLS_EMPTY_RENEGOTIATION_INFO_SCSV, so a silent
+        // default to it would be ambiguous; assert no entry resolves to it.
+        for (const name of Object.keys(CIPHER_SUITE_CODES)) {
+            expect(cipherSuiteToWire(name)).not.toBe(0x0000);
+        }
+    });
+
+    it("throws a ProfileError on an unknown suite name instead of returning 0x0000", () => {
+        expect(() => cipherSuiteToWire("TLS_FAKE_SUITE")).toThrow(ProfileError);
+        expect(() => cipherSuiteToWire("TLS_FAKE_SUITE")).toThrow(/Unknown cipher suite/);
+    });
+
+    it("throws a ProfileError on an empty name", () => {
+        expect(() => cipherSuiteToWire("")).toThrow(ProfileError);
+    });
+
+    it("throws an error whose message names the unknown suite", () => {
+        try {
+            cipherSuiteToWire("NOT_A_REAL_SUITE");
+            throw new Error("expected cipherSuiteToWire to throw");
+        } catch (e) {
+            expect(e).toBeInstanceOf(ProfileError);
+            expect((e as Error).message).toContain("NOT_A_REAL_SUITE");
+        }
     });
 });

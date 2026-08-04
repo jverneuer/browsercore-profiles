@@ -13,6 +13,8 @@
  *   - Signature schemes: tls-parameters.xhtml#tls-parameters-16
  */
 
+import { ProfileError } from "./errors.js";
+
 /**
  * The name Chrome/Edge use in their cipher list to mark a GREASE slot (RFC 8701).
  * The real value is randomized per-connection (0x0a0a..0xfafa); validation accepts
@@ -78,3 +80,21 @@ export const VERSION_CODES: Readonly<Record<string, number>> = {
     "TLS 1.1": 0x0302,
     "TLS 1.0": 0x0301,
 };
+
+/**
+ * Map a cipher-suite name to its 2-byte IANA wire code.
+ *
+ * This is the single projection seam from a profile's cipher name to the bytes
+ * a ClientHello carries. It throws on an unknown name rather than returning a
+ * sentinel: 0x0000 would be ambiguous (it collides with
+ * TLS_EMPTY_RENEGOTIATION_INFO_SCSV), and a silent default would hide a bug in
+ * a profile definition. An unknown name is therefore always an error here,
+ * never a 0x0000 fallback.
+ */
+export function cipherSuiteToWire(name: string): number {
+    const code = CIPHER_SUITE_CODES[name];
+    if (code === undefined) {
+        throw new ProfileError("UnknownCipherSuite", `Unknown cipher suite: ${name}`);
+    }
+    return code;
+}

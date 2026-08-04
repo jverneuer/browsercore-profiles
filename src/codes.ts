@@ -1,19 +1,24 @@
 /**
  * IANA TLS registry codes used to project profile names onto wire values.
  *
- * These are the canonical 2-byte codes from the IANA TLS parameter registries.
- * Only the codes referenced by the shipped profiles are mapped here — an
- * unknown name is a bug in a profile definition and surfaces as a
- * {@link ValidationError} at projection time, so the tables double as an
- * allow-list that keeps profile data honest.
+ * Cipher suite codes are imported from @browsercore/tls, which is the single
+ * source of truth for the suite table. This module re-exports them so profile
+ * authors can access both the canonical name list (ALL_CIPHER_SUITES) and
+ * the wire-code map (CIPHER_SUITE_CODES) from one place.
  *
- * Registries:
- *   - Cipher suites: tls-parameters.xhtml#tls-parameters-4
- *   - Named groups:   tls-parameters.xhtml#tls-parameters-8
- *   - Signature schemes: tls-parameters.xhtml#tls-parameters-16
+ * Other registries (named groups, signature schemes, protocol versions) are
+ * still defined here — they live only in profiles and have no tls-side table
+ * to import from.
  */
 
 import { ProfileError } from "./errors.js";
+import {
+    ALL_CIPHER_SUITES,
+    cipherSuiteToWire as cipherSuiteToWireFromTls,
+    isCipherSuite,
+} from "@browsercore/tls";
+
+export { ALL_CIPHER_SUITES, isCipherSuite } from "@browsercore/tls";
 
 /**
  * The name Chrome/Edge use in their cipher list to mark a GREASE slot (RFC 8701).
@@ -22,42 +27,21 @@ import { ProfileError } from "./errors.js";
  */
 export const CIPHER_GREASE_PLACEHOLDER = "TLS_GREASE_RESERVED_0";
 
-/** Selected IANA TLS Cipher Suite codes, keyed by the canonical suite name used in profiles. */
-export const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = {
-    // GREASE: real value is randomized per-connection (0x0a0a..0xfafa). We use the
-    // first canonical GREASE code for the expected representation; validation
-    // accepts any GREASE-pattern value at a GREASE slot.
-    [CIPHER_GREASE_PLACEHOLDER]: 0x0a0a,
-    TLS_AES_128_GCM_SHA256: 0x1301,
-    TLS_AES_256_GCM_SHA384: 0x1302,
-    TLS_CHACHA20_POLY1305_SHA256: 0x1303,
-    TLS_AES_128_CCM_SHA256: 0x1304,
-    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256: 0xc02b,
-    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: 0xc02f,
-    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384: 0xc02c,
-    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384: 0xc030,
-    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256: 0xcca9,
-    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256: 0xcca8,
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: 0xc013,
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: 0xc014,
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: 0xc009,
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: 0xc00a,
-    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256: 0xc023,
-    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384: 0xc024,
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256: 0xc027,
-    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384: 0xc028,
-    TLS_RSA_WITH_AES_128_GCM_SHA256: 0x009c,
-    TLS_RSA_WITH_AES_256_GCM_SHA384: 0x009d,
-    TLS_RSA_WITH_AES_128_CBC_SHA: 0x002f,
-    TLS_RSA_WITH_AES_256_CBC_SHA: 0x0035,
-    TLS_RSA_WITH_AES_128_CBC_SHA256: 0x003c,
-    TLS_RSA_WITH_AES_256_CBC_SHA256: 0x003d,
-    // Safari legacy tail: 3DES ciphers (RFC 3268). BoringSSL dropped these, but
-    // curl-impersonate restores them so Safari's ClientHello matches byte-for-byte.
-    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA: 0xc008,
-    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: 0xc012,
-    TLS_RSA_WITH_3DES_EDE_CBC_SHA: 0x000a,
-};
+/**
+ * Selected IANA TLS Cipher Suite codes, keyed by the canonical suite name used in profiles.
+ *
+ * Built from @browsercore/tls's canonical table — do not edit by hand. The
+ * tls package is the single source of truth for which suites exist and their
+ * wire values; this map is derived so profile code can do name→code lookups
+ * without re-importing the tls package.
+ */
+export const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = (() => {
+    const map: Record<string, number> = {};
+    for (const suite of ALL_CIPHER_SUITES) {
+        map[suite] = cipherSuiteToWireFromTls(suite);
+    }
+    return map;
+})();
 
 /** Selected IANA TLS Supported Groups (named groups) codes. */
 export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
@@ -101,17 +85,13 @@ export const VERSION_CODES: Readonly<Record<string, number>> = {
 /**
  * Map a cipher-suite name to its 2-byte IANA wire code.
  *
- * This is the single projection seam from a profile's cipher name to the bytes
- * a ClientHello carries. It throws on an unknown name rather than returning a
- * sentinel: 0x0000 would be ambiguous (it collides with
- * TLS_EMPTY_RENEGOTIATION_INFO_SCSV), and a silent default would hide a bug in
- * a profile definition. An unknown name is therefore always an error here,
- * never a 0x0000 fallback.
+ * Delegates to @browsercore/tls's canonical mapping. Throws a profiles-side
+ * {@link ProfileError} (not a tls error) on an unknown name so callers get a
+ * domain-appropriate error type.
  */
 export function cipherSuiteToWire(name: string): number {
-    const code = CIPHER_SUITE_CODES[name];
-    if (code === undefined) {
+    if (!isCipherSuite(name)) {
         throw new ProfileError("UnknownCipherSuite", `Unknown cipher suite: ${name}`);
     }
-    return code;
+    return cipherSuiteToWireFromTls(name);
 }

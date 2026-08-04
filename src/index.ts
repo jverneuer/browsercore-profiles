@@ -37,6 +37,8 @@ export {
     cipherSuiteToWire,
     CIPHER_GREASE_PLACEHOLDER,
     CIPHER_SUITE_CODES,
+    ALL_CIPHER_SUITES,
+    isCipherSuite,
     NAMED_GROUP_CODES,
     SIGNATURE_SCHEME_CODES,
     VERSION_CODES,

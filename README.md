@@ -1,7 +1,7 @@
 # @browsercore/profiles
 
 [![npm version](https://img.shields.io/npm/v/@browsercore/profiles)](https://www.npmjs.com/package/@browsercore/profiles)
-[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jverneuer/browsercore-profiles/main/coverage/badge.json)](https://github.com/jverneuer/browsercore-profiles/blob/main/COVERAGE.md)
+[![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jverneuer/browsercore-profiles/coverage/coverage/badge.json)](https://github.com/jverneuer/browsercore-profiles/blob/main/COVERAGE.md)
 [![lint](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-profiles/ci.yml?label=lint)](https://github.com/jverneuer/browsercore-profiles/actions/workflows/ci.yml)
 
 Browser fingerprint definitions (TLS / HTTP/2 / HTTP/1.1). Pure data — no protocol implementation lives here. Higher layers read these definitions and translate them into bytes, header order, and SETTINGS frames.

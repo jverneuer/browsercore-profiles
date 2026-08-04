@@ -17,6 +17,12 @@ export default defineConfig({
             exclude: ["src/types.ts"],
             reporter: ["text", "json-summary", "html"],
             all: true,
+            thresholds: {
+                statements: 94,
+                branches: 94,
+                functions: 94,
+                lines: 94,
+            },
         },
     },
 });

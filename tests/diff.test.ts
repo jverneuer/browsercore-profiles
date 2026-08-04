@@ -220,4 +220,36 @@ describe("diffProfiles", () => {
 
         expect(diffProfiles(left, right, { compareArrayOrder: false })).toEqual([]);
     });
+
+    it("reports a single whole-array diff in unordered mode when the arrays differ in length", () => {
+        const a = getProfile("chrome-140" as ProfileId);
+        // Unordered comparison first checks length equality; arrays of different
+        // lengths can never be equal as multisets, so one diff at the array path
+        // is emitted (and the per-element loop is skipped).
+        const shorter = {
+            ...a,
+            tls: { ...a.tls, cipherSuites: ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"] },
+        } as BrowserProfile;
+        const longer = {
+            ...a,
+            tls: {
+                ...a.tls,
+                cipherSuites: [
+                    "TLS_AES_128_GCM_SHA256",
+                    "TLS_AES_256_GCM_SHA384",
+                    "TLS_CHACHA20_POLY1305_SHA256",
+                ],
+            },
+        } as BrowserProfile;
+
+        const diffs = diffProfiles(shorter, longer, { compareArrayOrder: false });
+
+        expect(diffs).toEqual([
+            {
+                path: "tls.cipherSuites",
+                a: ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"],
+                b: ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"],
+            },
+        ]);
+    });
 });

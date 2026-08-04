@@ -7,7 +7,7 @@ Generated from `coverage-summary.json` by `scripts/coverage-md.mjs`.
 | Metric | Coverage |
 | --- | --- |
 | Statements | 100% (174/174) |
-| Branches | 98.5% (66/67) |
+| Branches | 100% (67/67) |
 | Functions | 100% (32/32) |
 | Lines | 100% (167/167) |
 
@@ -16,7 +16,7 @@ Generated from `coverage-summary.json` by `scripts/coverage-md.mjs`.
 | File | Statements | Branches | Functions | Lines |
 | --- | --- | --- | --- | --- |
 | `src/codes.ts` | 100% (5/5) | 100% (0/0) | 100% (0/0) | 100% (5/5) |
-| `src/diff.ts` | 100% (72/72) | 97.95% (48/49) | 100% (13/13) | 100% (67/67) |
+| `src/diff.ts` | 100% (72/72) | 100% (49/49) | 100% (13/13) | 100% (67/67) |
 | `src/errors.ts` | 100% (8/8) | 100% (0/0) | 100% (2/2) | 100% (8/8) |
 | `src/index.internal.ts` | 100% (0/0) | 100% (0/0) | 100% (0/0) | 100% (0/0) |
 | `src/index.ts` | 100% (0/0) | 100% (0/0) | 100% (0/0) | 100% (0/0) |

@@ -101,10 +101,27 @@ describe("shipped profiles — TLS invariants", () => {
         }
     });
 
-    it("key-share groups and signature algorithms have no duplicates", () => {
+    it("key-share groups have no duplicates", () => {
         for (const p of allProfiles) {
             expect(new Set(p.tls.keyShareGroups).size).toBe(p.tls.keyShareGroups.length);
-            expect(new Set(p.tls.signatureAlgorithms).size).toBe(p.tls.signatureAlgorithms.length);
+        }
+    });
+
+    it("signature algorithms have no duplicates, except Safari's intentional rsa_pss_rsae_sha384 twin", () => {
+        // curl-impersonate's ground-truth Safari signature intentionally duplicates
+        // rsa_pss_rsae_sha384 (0x0805) — a real WebKit quirk preserved by patching
+        // out BoringSSL's uniqueness check. See boringssl-old-ciphers.patch in
+        // curl-impersonate. No other profile duplicates a signature algorithm.
+        for (const p of allProfiles) {
+            const sigAlgs = p.tls.signatureAlgorithms;
+            const uniqueCount = new Set(sigAlgs).size;
+            if (p.name === "safari") {
+                expect(uniqueCount).toBe(sigAlgs.length - 1);
+                const deduped = Array.from(new Set(sigAlgs));
+                expect(deduped).toContain("rsa_pss_rsae_sha384");
+            } else {
+                expect(uniqueCount, `${p.id}: signatureAlgorithms must be unique`).toBe(sigAlgs.length);
+            }
         }
     });
 
@@ -127,17 +144,19 @@ describe("shipped profiles — TLS invariants", () => {
         }
     });
 
-    it("only Chrome and Edge carry the GREASE cipher placeholder", () => {
-        // Firefox/Safari cipher lists must not contain the placeholder even when
-        // their grease flag is true (Safari), because their ClientHello does not
-        // insert a GREASE cipher slot at the top of the list.
+    it("GREASE-bearing browsers (Chrome, Edge, Safari) lead with the GREASE cipher placeholder", () => {
+        // curl-impersonate ground truth: Chrome, Edge, and Safari all insert a
+        // GREASE cipher slot at the top of their cipher list. Firefox does not.
         for (const p of Object.values(ChromeProfiles)) {
             expect(p.tls.cipherSuites[0]).toBe(CIPHER_GREASE_PLACEHOLDER);
         }
         for (const p of Object.values(EdgeProfiles)) {
             expect(p.tls.cipherSuites[0]).toBe(CIPHER_GREASE_PLACEHOLDER);
         }
-        for (const p of [...Object.values(FirefoxProfiles), ...Object.values(SafariProfiles)]) {
+        for (const p of Object.values(SafariProfiles)) {
+            expect(p.tls.cipherSuites[0]).toBe(CIPHER_GREASE_PLACEHOLDER);
+        }
+        for (const p of Object.values(FirefoxProfiles)) {
             expect(p.tls.cipherSuites).not.toContain(CIPHER_GREASE_PLACEHOLDER);
         }
     });

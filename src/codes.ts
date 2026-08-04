@@ -19,10 +19,20 @@ import { ProfileError } from "./errors.js";
  * The name Chrome/Edge use in their cipher list to mark a GREASE slot (RFC 8701).
  * The real value is randomized per-connection (0x0a0a..0xfafa); validation accepts
  * any GREASE-pattern byte pair at a slot marked with this placeholder.
+ *
+ * @see cipherSuiteToWire which throws if an unknown name is projected.
  */
 export const CIPHER_GREASE_PLACEHOLDER = "TLS_GREASE_RESERVED_0";
 
-/** Selected IANA TLS Cipher Suite codes, keyed by the canonical suite name used in profiles. */
+/**
+ * Selected IANA TLS Cipher Suite codes, keyed by the canonical suite name used in profiles.
+ *
+ * Only the codes referenced by the shipped profiles are mapped here — an unknown name
+ * is a bug in a profile definition and surfaces as a {@link ProfileError} at projection
+ * time, so the table doubles as an allow-list that keeps profile data honest.
+ *
+ * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
+ */
 export const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = {
     // GREASE: real value is randomized per-connection (0x0a0a..0xfafa). We use the
     // first canonical GREASE code for the expected representation; validation
@@ -59,7 +69,9 @@ export const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = {
     TLS_RSA_WITH_3DES_EDE_CBC_SHA: 0x000a,
 };
 
-/** Selected IANA TLS Supported Groups (named groups) codes. */
+/** Selected IANA TLS Supported Groups (named groups) codes.
+ * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8
+ */
 export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
     x25519: 0x001d,
     secp256r1: 0x0017,
@@ -74,7 +86,9 @@ export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
     X25519MLKEM768: 0x11ec,
 };
 
-/** Selected IANA TLS SignatureScheme codes. */
+/** Selected IANA TLS SignatureScheme codes.
+ * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-16
+ */
 export const SIGNATURE_SCHEME_CODES: Readonly<Record<string, number>> = {
     ecdsa_secp256r1_sha256: 0x0403,
     ecdsa_secp384r1_sha384: 0x0503,
@@ -107,6 +121,21 @@ export const VERSION_CODES: Readonly<Record<string, number>> = {
  * TLS_EMPTY_RENEGOTIATION_INFO_SCSV), and a silent default would hide a bug in
  * a profile definition. An unknown name is therefore always an error here,
  * never a 0x0000 fallback.
+ *
+ * @param name - Canonical cipher-suite name as used in a {@link TlsProfile}
+ *   (e.g. `"TLS_AES_128_GCM_SHA256"`).
+ * @returns The 2-byte IANA code for the cipher suite.
+ * @throws {ProfileError} With kind `"UnknownCipherSuite"` if the name is not
+ *   in {@link CIPHER_SUITE_CODES}.
+ *
+ * @example
+ * ```ts
+ * cipherSuiteToWire("TLS_AES_128_GCM_SHA256"); // 0x1301
+ * cipherSuiteToWire("TLS_GREASE_RESERVED_0");  // 0x0a0a (placeholder)
+ * ```
+ *
+ * @see CIPHER_SUITE_CODES for the full code table.
+ * @since 0.1.0
  */
 export function cipherSuiteToWire(name: string): number {
     const code = CIPHER_SUITE_CODES[name];

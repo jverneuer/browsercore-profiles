@@ -67,13 +67,21 @@ export interface ClientHelloExpected {
 export class ValidationError extends ProfileError {
     public override readonly kind = "ValidationError" as const;
 
+    /**
+     * @param message - Description of what failed to validate or project.
+     * @param options - `cause` wraps the underlying error.
+     */
     constructor(message: string, options?: { cause?: Error }) {
         super("ValidationError", message, options);
         this.name = "ValidationError";
     }
 }
 
-/** Outcome of validating a profile against a captured ClientHello. */
+/**
+ * Outcome of validating a profile against a captured ClientHello.
+ *
+ * Produced by {@link validateProfileAgainstCapture}.
+ */
 export interface ValidationResult {
     /** True when every field matches (respecting GREASE randomization for cipher suites). */
     readonly ok: boolean;
@@ -115,9 +123,26 @@ function mapVersion(name: string): number {
 
 /**
  * Project a profile's TLS fields onto the wire values its ClientHello should
- * carry for a connection to `serverName`. Extension order is taken verbatim from
- * the profile (already stored as wire codes), since extension order is a
- * fingerprint signal.
+ * carry for a connection to `serverName`.
+ *
+ * Extension order is taken verbatim from the profile (already stored as wire
+ * codes), since extension order is a fingerprint signal. Cipher suites, named
+ * groups, signature schemes, and TLS versions are projected through the IANA
+ * code tables in {@link codes.ts}.
+ *
+ * @param profile - The {@link BrowserProfile} to project.
+ * @param serverName - The SNI server name the connection targets.
+ * @returns The {@link ClientHelloExpected} wire values.
+ * @throws {ValidationError} If the profile references an unknown cipher suite,
+ *   named group, signature scheme, or TLS version.
+ *
+ * @example
+ * ```ts
+ * const expected = buildExpectedClientHello(chrome140, "example.com");
+ * // expected.cipherSuites = [0x1301, 0x1302, ...]
+ * ```
+ *
+ * @since 0.1.0
  */
 export function buildExpectedClientHello(
     profile: BrowserProfile,
@@ -194,9 +219,31 @@ function diffCipherSuites(
 /**
  * Validate a profile against a captured ClientHello.
  *
- * Returns `ok: true` when every field matches (respecting GREASE randomization
- * for cipher suites), and the list of diffs otherwise. SNI is not compared
- * because captures do not record the destination hostname.
+ * Projects the profile to expected wire values (via {@link buildExpectedClientHello})
+ * and compares them field-by-field against the capture. Returns `ok: true` when
+ * every field matches (respecting GREASE randomization for cipher suites), and
+ * the list of diffs otherwise.
+ *
+ * SNI is not compared because captures do not record the destination hostname.
+ *
+ * @param profile - The {@link BrowserProfile} to validate.
+ * @param capture - A {@link TlsCapture} parsed from a packet capture.
+ * @returns A {@link ValidationResult} indicating match/mismatch.
+ * @throws {ValidationError} If the profile references an unknown cipher suite,
+ *   named group, signature scheme, or TLS version.
+ *
+ * @example
+ * ```ts
+ * const result = validateProfileAgainstCapture(chrome140, capture);
+ * if (!result.ok) {
+ *     for (const d of result.diffs) {
+ *         console.log(`${d.path}: expected ${d.a}, got ${d.b}`);
+ *     }
+ * }
+ * ```
+ *
+ * @see buildExpectedClientHello for the projection step.
+ * @since 0.1.0
  */
 export function validateProfileAgainstCapture(
     profile: BrowserProfile,

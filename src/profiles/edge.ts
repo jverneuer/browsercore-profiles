@@ -5,19 +5,28 @@
  * GREASE behavior, same cipher families — but differs in the advertised user
  * agent string, the `sec-ch-ua` brand list (includes "Microsoft Edge"), and a
  * slightly different extension order. HTTP/2 settings track Chrome closely.
- * Values mirror real Edge captures per version.
+ * Values mirror curl-impersonate's Edge 101 ground-truth signature byte-for-byte
+ * (see tests/profiles-edge.test.ts for the wire-code mapping).
  */
 
 import type { BrowserProfile, ProfileId } from "../types.js";
 
+/** TLS 1.3 GREASE placeholder cipher (0x?a?a) Edge inserts at the top of the list. */
 const GREASE = "TLS_GREASE_RESERVED_0";
 
+/**
+ * Edge TLS extension order, in wire order, taken verbatim from the
+ * curl-impersonate signature. GREASE extension slots are excluded (their values
+ * are randomized per-connection and the profile stores literal wire codes).
+ */
+const EDGE_EXTENSION_ORDER: readonly number[] = [
+    0, 23, 65281, 10, 11, 35, 16, 5, 13, 18, 51, 45, 43, 27, 17513, 21,
+];
+
 const edgeTlsBase = {
-    extensionOrder: [
-        0, 10, 11, 13, 16, 17513, 18, 23, 27, 35, 41, 43, 45, 5, 51, 65281,
-    ],
+    extensionOrder: EDGE_EXTENSION_ORDER,
     supportedVersions: ["TLS 1.3", "TLS 1.2"],
-    keyShareGroups: ["x25519", "secp256r1"],
+    keyShareGroups: ["x25519", "secp256r1", "secp384r1"],
     signatureAlgorithms: [
         "ecdsa_secp256r1_sha256",
         "rsa_pss_rsae_sha256",
@@ -25,6 +34,8 @@ const edgeTlsBase = {
         "ecdsa_secp384r1_sha384",
         "rsa_pss_rsae_sha384",
         "rsa_pkcs1_sha384",
+        "rsa_pss_rsae_sha512",
+        "rsa_pkcs1_sha512",
     ],
     grease: true,
 } as const;
@@ -57,30 +68,36 @@ const edgeHttp1Base = {
     ],
 } as const;
 
+/**
+ * Edge cipher suites in wire order, matching curl-impersonate's Edge 101
+ * signature. Same set and order as Chrome (Chromium-based).
+ */
+const EDGE_CIPHERS: readonly string[] = [
+    GREASE,
+    "TLS_AES_128_GCM_SHA256",
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+    "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+    "TLS_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_RSA_WITH_AES_128_CBC_SHA",
+    "TLS_RSA_WITH_AES_256_CBC_SHA",
+];
+
 export const edge120: BrowserProfile = {
     id: "edge-120" as ProfileId,
     name: "edge",
     version: "120.0.2210.91",
     tls: {
         ...edgeTlsBase,
-        cipherSuites: [
-            GREASE,
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        ],
+        cipherSuites: EDGE_CIPHERS,
     },
     http2: {
         ...edgeHttp2Base,
@@ -117,24 +134,7 @@ export const edge128: BrowserProfile = {
     version: "128.0.2739.70",
     tls: {
         ...edgeTlsBase,
-        cipherSuites: [
-            GREASE,
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        ],
+        cipherSuites: EDGE_CIPHERS,
     },
     http2: {
         ...edgeHttp2Base,

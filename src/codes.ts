@@ -50,6 +50,11 @@ export const CIPHER_SUITE_CODES: Readonly<Record<string, number>> = {
     TLS_RSA_WITH_AES_256_CBC_SHA: 0x0035,
     TLS_RSA_WITH_AES_128_CBC_SHA256: 0x003c,
     TLS_RSA_WITH_AES_256_CBC_SHA256: 0x003d,
+    // Safari legacy tail: 3DES ciphers (RFC 3268). BoringSSL dropped these, but
+    // curl-impersonate restores them so Safari's ClientHello matches byte-for-byte.
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA: 0xc008,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: 0xc012,
+    TLS_RSA_WITH_3DES_EDE_CBC_SHA: 0x000a,
 };
 
 /** Selected IANA TLS Supported Groups (named groups) codes. */
@@ -57,6 +62,7 @@ export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
     x25519: 0x001d,
     secp256r1: 0x0017,
     secp384r1: 0x0018,
+    secp521r1: 0x0019,
 };
 
 /** Selected IANA TLS SignatureScheme codes. */
@@ -67,8 +73,11 @@ export const SIGNATURE_SCHEME_CODES: Readonly<Record<string, number>> = {
     ecdsa_secp384r1_sha384: 0x0503,
     rsa_pss_rsae_sha384: 0x0805,
     rsa_pkcs1_sha384: 0x0501,
+    rsa_pss_rsae_sha512: 0x0806,
+    rsa_pkcs1_sha512: 0x0601,
     ed25519: 0x0807,
     rsa_pkcs1_sha1: 0x0201,
+    ecdsa_sha1: 0x0203,
 };
 
 /** IANA TLS ProtocolVersion codes for the supported_versions extension. */

@@ -65,6 +65,8 @@ export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
     secp256r1: 0x0017,
     secp384r1: 0x0018,
     secp521r1: 0x0019,
+    ffdhe2048: 0x0100,
+    ffdhe3072: 0x0101,
     // Chrome 124+ adds the hybrid post-quantum group. The draft Kyber768 code
     // (0x6399) shipped in Chrome 124–130; the final MLKEM768 code (0x11ec) has
     // been used since Chrome 131. Both appear at the front of the group list.
@@ -75,16 +77,17 @@ export const NAMED_GROUP_CODES: Readonly<Record<string, number>> = {
 /** Selected IANA TLS SignatureScheme codes. */
 export const SIGNATURE_SCHEME_CODES: Readonly<Record<string, number>> = {
     ecdsa_secp256r1_sha256: 0x0403,
-    rsa_pss_rsae_sha256: 0x0804,
-    rsa_pkcs1_sha256: 0x0401,
     ecdsa_secp384r1_sha384: 0x0503,
-    rsa_pss_rsae_sha384: 0x0805,
-    rsa_pkcs1_sha384: 0x0501,
-    rsa_pss_rsae_sha512: 0x0806,
-    rsa_pkcs1_sha512: 0x0601,
-    ed25519: 0x0807,
-    rsa_pkcs1_sha1: 0x0201,
+    ecdsa_secp521r1_sha512: 0x0603,
     ecdsa_sha1: 0x0203,
+    rsa_pss_rsae_sha256: 0x0804,
+    rsa_pss_rsae_sha384: 0x0805,
+    rsa_pss_rsae_sha512: 0x0806,
+    rsa_pkcs1_sha256: 0x0401,
+    rsa_pkcs1_sha384: 0x0501,
+    rsa_pkcs1_sha512: 0x0601,
+    rsa_pkcs1_sha1: 0x0201,
+    ed25519: 0x0807,
 };
 
 /** IANA TLS ProtocolVersion codes for the supported_versions extension. */

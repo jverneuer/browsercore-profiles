@@ -145,11 +145,19 @@ describe("validateProfileAgainstCapture", () => {
         const profile = getProfile("firefox-135" as ProfileId);
         const expected = buildExpectedClientHello(profile, "example.com");
 
-        // Firefox leads with TLS_AES_128_GCM_SHA256 and advertises ed25519 +
-        // rsa_pkcs1_sha1 — schemes Chrome does not offer.
+        // Firefox leads with TLS_AES_128_GCM_SHA256. Its signature scheme set
+        // mirrors curl-impersonate's nss.c signatures[]: ECDSA across the three
+        // NIST curves, RSA-PSS across the three lengths, PKCS#1 across the
+        // three lengths, plus the legacy ecdsa_sha1 and rsa_pkcs1_sha1. Note:
+        // Firefox does NOT advertise ed25519 (unlike Chrome) — verified against
+        // the curl-impersonate firefox-133 capture.
         expect(expected.cipherSuites[0]).toBe(0x1301);
-        expect(expected.signatureAlgorithms).toContain(0x0807); // ed25519
+        expect(expected.signatureAlgorithms).toContain(0x0603); // ecdsa_secp521r1_sha512
+        expect(expected.signatureAlgorithms).toContain(0x0806); // rsa_pss_rsae_sha512
+        expect(expected.signatureAlgorithms).toContain(0x0601); // rsa_pkcs1_sha512
+        expect(expected.signatureAlgorithms).toContain(0x0203); // ecdsa_sha1
         expect(expected.signatureAlgorithms).toContain(0x0201); // rsa_pkcs1_sha1
+        expect(expected.signatureAlgorithms).not.toContain(0x0807); // no ed25519
     });
 
     it("maps Safari cipher suites (SHA-CBC + 3DES tail) to IANA codes", () => {

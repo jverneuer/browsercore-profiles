@@ -1,31 +1,71 @@
 /**
  * Firefox fingerprint definitions.
  *
- * Firefox uses a distinct cipher order from Chrome, does NOT enable GREASE, and
- * advertises a different TLS extension set. HTTP/2 settings are more conservative
- * (smaller initial window). Values mirror real Firefox captures per version.
+ * TLS values mirror curl-impersonate's Firefox build (see
+ * lwthiker/curl-impersonate firefox/patches/curl-impersonate.patch — nss.c).
+ * Cipher order, extension order, signature algorithms, and named groups are
+ * byte-accurate against the firefox-133 ClientHello capture
+ * (tests/fixtures/firefox-133) and the patch's signatures[]/named_groups[]
+ * tables. HTTP/2 settings track the patch's 12MB window and the default stream
+ * weight/dependency/stream-id constants.
+ *
+ * Note on cipher names: codes.js maps names to wire codes with a
+ * browser-specific remapping (AES_256->0x1302, ChaCha20->0x1303) so that this
+ * profile's name order produces Firefox's true wire order
+ * (0x1301,0x1303,0x1302,...). Do not reorder these names to match IANA — that
+ * would emit Chrome's wire order. Verified against the capture.
  */
 
 import type { BrowserProfile, ProfileId } from "../types.js";
 
 const firefoxTlsBase = {
     extensionOrder: [
-        0, 10, 11, 13, 16, 18, 23, 35, 41, 43, 45, 51, 65281,
+        0, 23, 65281, 10, 11, 35, 16, 5, 34, 51, 43, 13, 45, 28, 27, 65037,
     ],
     supportedVersions: ["TLS 1.3", "TLS 1.2"],
-    keyShareGroups: ["x25519", "secp256r1", "secp384r1"],
+    keyShareGroups: [
+        "x25519",
+        "secp256r1",
+        "secp384r1",
+        "secp521r1",
+        "ffdhe2048",
+        "ffdhe3072",
+    ],
     signatureAlgorithms: [
         "ecdsa_secp256r1_sha256",
         "ecdsa_secp384r1_sha384",
-        "ed25519",
+        "ecdsa_secp521r1_sha512",
         "rsa_pss_rsae_sha256",
         "rsa_pss_rsae_sha384",
+        "rsa_pss_rsae_sha512",
         "rsa_pkcs1_sha256",
         "rsa_pkcs1_sha384",
+        "rsa_pkcs1_sha512",
+        "ecdsa_sha1",
         "rsa_pkcs1_sha1",
     ],
     grease: false,
 } as const;
+
+const firefoxTlsCiphers = [
+    "TLS_AES_128_GCM_SHA256",
+    "TLS_CHACHA20_POLY1305_SHA256",
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+    "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+    "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+    "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+    "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+    "TLS_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_RSA_WITH_AES_128_CBC_SHA",
+    "TLS_RSA_WITH_AES_256_CBC_SHA",
+] as const;
 
 const firefoxHttp2Base = {
     initialWindowSize: 12582912,
@@ -58,25 +98,7 @@ export const firefox120: BrowserProfile = {
     version: "120.0",
     tls: {
         ...firefoxTlsBase,
-        cipherSuites: [
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        ],
+        cipherSuites: firefoxTlsCiphers,
     },
     http2: {
         ...firefoxHttp2Base,
@@ -110,25 +132,7 @@ export const firefox128: BrowserProfile = {
     version: "128.0",
     tls: {
         ...firefoxTlsBase,
-        cipherSuites: [
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        ],
+        cipherSuites: firefoxTlsCiphers,
     },
     http2: {
         ...firefoxHttp2Base,
@@ -162,25 +166,7 @@ export const firefox135: BrowserProfile = {
     version: "135.0",
     tls: {
         ...firefoxTlsBase,
-        cipherSuites: [
-            "TLS_AES_128_GCM_SHA256",
-            "TLS_CHACHA20_POLY1305_SHA256",
-            "TLS_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
-            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_RSA_WITH_AES_256_CBC_SHA",
-        ],
+        cipherSuites: firefoxTlsCiphers,
     },
     http2: {
         ...firefoxHttp2Base,

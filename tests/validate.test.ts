@@ -152,14 +152,20 @@ describe("validateProfileAgainstCapture", () => {
         expect(expected.signatureAlgorithms).toContain(0x0201); // rsa_pkcs1_sha1
     });
 
-    it("maps Safari cipher suites (SHA-256/SHA-384 CBC) to IANA codes", () => {
+    it("maps Safari cipher suites (SHA-CBC + 3DES tail) to IANA codes", () => {
         const profile = getProfile("safari-18" as ProfileId);
         const expected = buildExpectedClientHello(profile, "example.com");
 
-        // Safari's cipher list includes the CBC SHA-256/SHA-384 variants.
-        expect(expected.cipherSuites).toContain(0xc024); // ECDSA AES-256-CBC-SHA384
-        expect(expected.cipherSuites).toContain(0x003c); // RSA AES-128-CBC-SHA256
-        expect(expected.cipherSuites).toContain(0x003d); // RSA AES-256-CBC-SHA256
+        // Per curl-impersonate ground truth, Safari's legacy tail uses SHA-CBC
+        // (not SHA-256/SHA-384 CBC) variants followed by a 3DES tail — BoringSSL
+        // dropped these, but curl-impersonate restores them.
+        expect(expected.cipherSuites).toContain(0xc00a); // ECDSA AES-256-CBC-SHA
+        expect(expected.cipherSuites).toContain(0xc009); // ECDSA AES-128-CBC-SHA
+        expect(expected.cipherSuites).toContain(0x0035); // RSA AES-256-CBC-SHA
+        expect(expected.cipherSuites).toContain(0x002f); // RSA AES-128-CBC-SHA
+        expect(expected.cipherSuites).toContain(0xc008); // ECDSA 3DES-EDE-CBC-SHA
+        expect(expected.cipherSuites).toContain(0xc012); // ECDHE-RSA 3DES-EDE-CBC-SHA
+        expect(expected.cipherSuites).toContain(0x000a); // RSA 3DES-EDE-CBC-SHA
     });
 
     it("throws ValidationError when a profile references an unknown cipher suite", () => {

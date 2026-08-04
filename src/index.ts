@@ -34,6 +34,15 @@ export type {
 } from "./validate.js";
 
 export {
+    cipherSuiteToWire,
+    CIPHER_GREASE_PLACEHOLDER,
+    CIPHER_SUITE_CODES,
+    NAMED_GROUP_CODES,
+    SIGNATURE_SCHEME_CODES,
+    VERSION_CODES,
+} from "./codes.js";
+
+export {
     ChromeProfiles,
     FirefoxProfiles,
     SafariProfiles,

@@ -6,7 +6,14 @@
  * these definitions and translate them into bytes / header order / settings frames.
  */
 
-/** Branded browser-profile identifier (e.g. "chrome-140"). */
+/**
+ * Branded browser-profile identifier.
+ *
+ * Format: `"${name}-${version}"`, e.g. `"chrome-140"`, `"firefox-128"`.
+ * Branding prevents passing an arbitrary string where a validated id is expected.
+ *
+ * @see createId for building a branded id from a name + version.
+ */
 export type ProfileId = string & { __brand: "ProfileId" };
 
 /** Known browser families. Discriminated-union literal set. */
@@ -16,7 +23,13 @@ export type ProfileName =
     | "safari"
     | "edge";
 
-/** TLS-layer fingerprint: everything a TLS client hello reveals about the client. */
+/**
+ * TLS-layer fingerprint: everything a ClientHello reveals about the client.
+ *
+ * Stored as human-readable strings (cipher names, group names) and integer
+ * arrays (extension order). Translation to wire bytes happens in the protocol
+ * layers via {@link cipherSuiteToWire} and the IANA code tables in {@link codes.ts}.
+ */
 export interface TlsProfile {
     /** Ordered list of offered cipher suites (IANA names). Order matters for fingerprinting. */
     readonly cipherSuites: readonly string[];
@@ -34,7 +47,12 @@ export interface TlsProfile {
     readonly grease: boolean;
 }
 
-/** HTTP/2 SETTINGS + tuning parameters. */
+/**
+ * HTTP/2 SETTINGS + tuning parameters.
+ *
+ * Captures the values a client advertises in its initial SETTINGS frame and
+ * the defaults it applies to stream priority / window sizing.
+ */
 export interface Http2Profile {
     /** HTTP/2 settings the client sends in its first SETTINGS frame. */
     readonly settings: Partial<Http2Settings>;
@@ -50,7 +68,13 @@ export interface Http2Profile {
     readonly priority?: Http2Priority;
 }
 
-/** HTTP/2 numeric settings (RFC 9113 §6.5.1). */
+/**
+ * HTTP/2 numeric settings (RFC 9113 §6.5.1).
+ *
+ * These are the settings a client advertises in its SETTINGS frame; not every
+ * browser sends all of them, so the type is used as `Partial<Http2Settings>`
+ * in {@link Http2Profile}.
+ */
 export interface Http2Settings {
     readonly headerTableSize: number;
     readonly enablePush: boolean;
@@ -67,7 +91,12 @@ export interface Http2Priority {
     readonly weight: number;
 }
 
-/** HTTP/1.1-layer fingerprint: header defaults and ordering. */
+/**
+ * HTTP/1.1-layer fingerprint: header defaults and ordering.
+ *
+ * Models the headers a browser sends on every request and the order in which
+ * it serializes them — both are fingerprint signals.
+ */
 export interface Http1Profile {
     /** Default headers sent on every request, in order. */
     readonly defaultHeaders: Readonly<Record<string, string>>;
@@ -79,7 +108,13 @@ export interface Http1Profile {
     readonly acceptEncoding: string;
 }
 
-/** A complete browser fingerprint across all layers. */
+/**
+ * A complete browser fingerprint across all layers.
+ *
+ * Pure data — no protocol logic, no Node imports. The `id` uniquely identifies
+ * this profile in the registry. Higher layers read these definitions and
+ * translate them into wire bytes / header order / settings frames.
+ */
 export interface BrowserProfile {
     readonly id: ProfileId;
     /** Human-readable browser name. */

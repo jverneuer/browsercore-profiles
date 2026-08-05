@@ -16,11 +16,19 @@ export interface DiffOptions {
     /**
      * When true (the default), arrays are compared element-by-element in order.
      * When false, arrays are compared as multisets (order is ignored).
+     *
+     * @defaultValue true
      */
     readonly compareArrayOrder?: boolean;
 }
 
-/** A single difference between two profiles, located by its dotted path. */
+/**
+ * A single difference between two profiles, located by its dotted path.
+ *
+ * Produced by {@link diffProfiles}. `a` and `b` hold the differing values from
+ * the left- and right-hand profiles; one may be `undefined` when the path exists
+ * in only one profile.
+ */
 export interface ProfileDiff {
     /** Dotted path to the differing field, e.g. "tls.cipherSuites[3]". */
     readonly path: string;
@@ -193,6 +201,22 @@ function sortValue(value: unknown): unknown {
  * Returns a {@link ProfileDiff} for every differing path. The result is empty
  * when the profiles are structurally equal. Array comparison is order-sensitive
  * by default; pass `{ compareArrayOrder: false }` to ignore element order.
+ *
+ * @param a - The left-hand (expected/older) profile.
+ * @param b - The right-hand (actual/newer) profile.
+ * @param options - Controls array comparison behavior. Defaults to `{ compareArrayOrder: true }`.
+ * @returns An array of {@link ProfileDiff} entries, one per differing path.
+ *
+ * @example
+ * ```ts
+ * const diffs = diffProfiles(chrome140, chrome141);
+ * for (const d of diffs) {
+ *     console.log(`${d.path}: ${d.a} -> ${d.b}`);
+ * }
+ * // => "tls.cipherSuites[5]: TLS_OLD -> TLS_NEW"
+ * ```
+ *
+ * @since 0.1.0
  */
 export function diffProfiles(
     a: BrowserProfile,

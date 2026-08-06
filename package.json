@@ -40,7 +40,7 @@
         "coverage-md": "./bin/coverage-md.mjs"
     },
     "dependencies": {
-        "@browsercore/tls": "0.3.1"
+        "@browsercore/tls": "0.4.0"
     },
     "devDependencies": {
         "@browsercore/dev": "latest",

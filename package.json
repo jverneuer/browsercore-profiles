@@ -40,6 +40,7 @@
         "coverage-md": "./bin/coverage-md.mjs"
     },
     "dependencies": {
+        "@browsercore/crypto": "0.2.0",
         "@browsercore/tls": "0.4.0"
     },
     "devDependencies": {

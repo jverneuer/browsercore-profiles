@@ -1,7 +1,24 @@
-import { definePackageConfig } from "@browsercore/dev/vitest";
-export default definePackageConfig({
-    name: "profiles",
-    coverage: {
-        thresholds: { statements: 94, branches: 94, functions: 94, lines: 94 },
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+    test: {
+        name: "profiles",
+        root: ".",
+        include: ["tests/**/*.test.ts"],
+        environment: "node",
+        globals: false,
+        testTimeout: 30_000,
+        hookTimeout: 30_000,
+        coverage: {
+            provider: "v8",
+            include: ["src/**/*.ts"],
+            reporter: ["text", "html", "json-summary"],
+            thresholds: { statements: 94, branches: 94, functions: 94, lines: 94 },
+            exclude: [
+                "**/index.ts",
+                "tests/**",
+                "node_modules/**",
+            ],
+        },
     },
 });

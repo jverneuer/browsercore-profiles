@@ -48,6 +48,8 @@ const safariTlsBase = {
         "rsa_pkcs1_sha1",
     ],
     grease: true,
+    ecPointFormats: [0x00],
+    compressCertificateAlgorithms: [0x02],
 } as const;
 
 const safariHttp2Base = {
@@ -55,6 +57,10 @@ const safariHttp2Base = {
     maxFrameSize: 16384,
     headerTableSize: 65536,
     weight: 256,
+    settingsOrder: [1, 2, 4, 6],
+    grease: false,
+    connectionWindowUpdate: 0,
+    pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
 } as const;
 
 const safariHttp1Base = {

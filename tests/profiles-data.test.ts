@@ -226,6 +226,124 @@ describe("shipped profiles — HTTP/1 invariants", () => {
     });
 });
 
+describe("shipped profiles — TLS impersonation fields", () => {
+    it("Chrome and Edge advertise uncompressed EC point format (0x00)", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.tls.ecPointFormats, `${p.id}`).toEqual([0x00]);
+        }
+    });
+
+    it("Chrome and Edge advertise brotli-only compress_certificate (0x02)", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.tls.compressCertificateAlgorithms, `${p.id}`).toEqual([0x02]);
+        }
+    });
+
+    it("Chrome and Edge set record padding to 512 bytes", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.tls.recordPadding, `${p.id}`).toBe(512);
+        }
+    });
+
+    it("Firefox 128+ advertises uncompressed EC point format (0x00)", () => {
+        expect(FirefoxProfiles.firefox128.tls.ecPointFormats).toEqual([0x00]);
+        expect(FirefoxProfiles.firefox135.tls.ecPointFormats).toEqual([0x00]);
+    });
+
+    it("Firefox 128+ advertises brotli + zlib compress_certificate (0x02, 0x01)", () => {
+        // Firefox differs from Chrome: it also offers zlib (0x01) after brotli.
+        expect(FirefoxProfiles.firefox128.tls.compressCertificateAlgorithms).toEqual([0x02, 0x01]);
+        expect(FirefoxProfiles.firefox135.tls.compressCertificateAlgorithms).toEqual([0x02, 0x01]);
+    });
+
+    it("Firefox does not set record padding (undefined)", () => {
+        expect(FirefoxProfiles.firefox128.tls.recordPadding).toBeUndefined();
+        expect(FirefoxProfiles.firefox135.tls.recordPadding).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.tls.recordPadding).toBeUndefined();
+    });
+
+    it("firefox-120 does not carry impersonation fields (predates the data)", () => {
+        expect(FirefoxProfiles.firefox120.tls.ecPointFormats).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.tls.compressCertificateAlgorithms).toBeUndefined();
+    });
+
+    it("Safari advertises uncompressed EC point format and brotli compress_certificate", () => {
+        for (const p of Object.values(SafariProfiles)) {
+            expect(p.tls.ecPointFormats, `${p.id}`).toEqual([0x00]);
+            expect(p.tls.compressCertificateAlgorithms, `${p.id}`).toEqual([0x02]);
+        }
+    });
+
+    it("Safari does not set record padding (undefined)", () => {
+        for (const p of Object.values(SafariProfiles)) {
+            expect(p.tls.recordPadding, `${p.id}`).toBeUndefined();
+        }
+    });
+});
+
+describe("shipped profiles — HTTP/2 impersonation fields", () => {
+    it("Chrome and Edge share the same SETTINGS id wire order [1, 2, 4, 6]", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.http2.settingsOrder, `${p.id}`).toEqual([1, 2, 4, 6]);
+        }
+    });
+
+    it("Chrome and Edge inject GREASE in HTTP/2", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.http2.grease, `${p.id}`).toBe(true);
+        }
+    });
+
+    it("Chrome and Edge send connection WINDOW_UPDATE 15663105 in preface", () => {
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.http2.connectionWindowUpdate, `${p.id}`).toBe(15663105);
+        }
+    });
+
+    it("Chrome and Edge use the standard pseudo-header order", () => {
+        const order = ["method", "authority", "scheme", "path"];
+        for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
+            expect(p.http2.pseudoHeaderOrder, `${p.id}`).toEqual(order);
+        }
+    });
+
+    it("Firefox 128+ uses the same SETTINGS id wire order as Chrome", () => {
+        expect(FirefoxProfiles.firefox128.http2.settingsOrder).toEqual([1, 2, 4, 6]);
+        expect(FirefoxProfiles.firefox135.http2.settingsOrder).toEqual([1, 2, 4, 6]);
+    });
+
+    it("Firefox 128+ does NOT inject GREASE in HTTP/2", () => {
+        expect(FirefoxProfiles.firefox128.http2.grease).toBe(false);
+        expect(FirefoxProfiles.firefox135.http2.grease).toBe(false);
+    });
+
+    it("Firefox 128+ sends connection WINDOW_UPDATE 12517377 (distinct from Chrome)", () => {
+        expect(FirefoxProfiles.firefox128.http2.connectionWindowUpdate).toBe(12517377);
+        expect(FirefoxProfiles.firefox135.http2.connectionWindowUpdate).toBe(12517377);
+    });
+
+    it("Safari does NOT inject GREASE and does not send a connection WINDOW_UPDATE", () => {
+        for (const p of Object.values(SafariProfiles)) {
+            expect(p.http2.grease, `${p.id}`).toBe(false);
+            expect(p.http2.connectionWindowUpdate, `${p.id}`).toBe(0);
+        }
+    });
+
+    it("Safari uses the standard pseudo-header order", () => {
+        const order = ["method", "authority", "scheme", "path"];
+        for (const p of Object.values(SafariProfiles)) {
+            expect(p.http2.pseudoHeaderOrder, `${p.id}`).toEqual(order);
+        }
+    });
+
+    it("firefox-120 does not carry HTTP/2 impersonation fields (predates the data)", () => {
+        expect(FirefoxProfiles.firefox120.http2.settingsOrder).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.http2.grease).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.http2.connectionWindowUpdate).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.http2.pseudoHeaderOrder).toBeUndefined();
+    });
+});
+
 describe("registry — overwrite and ordering", () => {
     it("registerProfile overwrites a built-in id with a new reference", () => {
         // The registry contract: "Overwrites any existing profile with the same id."

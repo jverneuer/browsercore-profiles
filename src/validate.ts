@@ -38,6 +38,10 @@ export interface TlsCapture {
     readonly keyShareGroups: readonly number[];
     /** Signature algorithm codes offered. */
     readonly signatureAlgorithms: readonly number[];
+    /** EC point formats observed (wire codes). Absent when the capture tool doesn't record them. */
+    readonly ecPointFormats?: readonly number[];
+    /** compress_certificate algorithms observed (wire codes). Absent when not recorded. */
+    readonly compressCertificateAlgorithms?: readonly number[];
     /** Whether the ClientHello used GREASE randomization. */
     readonly grease: boolean;
     /** Optional JA3 / JA4 strings, when the capture tool computed them. */
@@ -57,6 +61,10 @@ export interface ClientHelloExpected {
     readonly keyShareGroups: readonly number[];
     /** Signature algorithm codes. */
     readonly signatureAlgorithms: readonly number[];
+    /** EC point formats offered (wire codes). Undefined when the profile doesn't specify them. */
+    readonly ecPointFormats?: readonly number[];
+    /** compress_certificate algorithms offered (wire codes). Undefined when unspecified. */
+    readonly compressCertificateAlgorithms?: readonly number[];
     /** Whether GREASE randomization is expected. */
     readonly grease: boolean;
     /** SNI hostname the client would send, derived from the connection target. */
@@ -155,6 +163,14 @@ export function buildExpectedClientHello(
         keyShareGroups: profile.tls.keyShareGroups.map(mapNamedGroup),
         signatureAlgorithms: profile.tls.signatureAlgorithms.map(mapSignatureScheme),
         grease: profile.tls.grease,
+        // Conditionally spread optional fields so absent properties are truly
+        // absent (exactOptionalPropertyTypes forbids assigning undefined).
+        ...(profile.tls.ecPointFormats
+            ? { ecPointFormats: Array.from(profile.tls.ecPointFormats) }
+            : {}),
+        ...(profile.tls.compressCertificateAlgorithms
+            ? { compressCertificateAlgorithms: Array.from(profile.tls.compressCertificateAlgorithms) }
+            : {}),
         sni: serverName,
     };
 }
@@ -262,6 +278,24 @@ export function validateProfileAgainstCapture(
         capture.signatureAlgorithms,
         diffs,
     );
+
+    // Optional impersonation fields: only diff when both the profile and the
+    // capture record them. Older captures may not include ecPointFormats or
+    // compressCertificateAlgorithms, so absence from the capture is not a mismatch.
+    if (expected.ecPointFormats !== undefined && capture.ecPointFormats !== undefined) {
+        diffNumberArray("tls.ecPointFormats", expected.ecPointFormats, capture.ecPointFormats, diffs);
+    }
+    if (
+        expected.compressCertificateAlgorithms !== undefined &&
+        capture.compressCertificateAlgorithms !== undefined
+    ) {
+        diffNumberArray(
+            "tls.compressCertificateAlgorithms",
+            expected.compressCertificateAlgorithms,
+            capture.compressCertificateAlgorithms,
+            diffs,
+        );
+    }
 
     if (expected.grease !== capture.grease) {
         diffs.push({ path: "tls.grease", a: expected.grease, b: capture.grease });

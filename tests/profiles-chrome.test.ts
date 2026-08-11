@@ -9,7 +9,7 @@
  * Ground-truth anchors used below:
  *   - chrome-120: ja3 698f6d684588ddc1217dfb4454916129
  *     `771,4866...47-53,43-13-11-18-0-65037-27-23-10-45-17513-16-5-35-51-65281,29-23-24,0`
- *     peetprint `...|0-10-11-13-16-17513-18-23-27-35-43-45-5-51-65037-65281-GREASE-GREASE`.
+ *     peetprint `...|13-65037-17513-45-18-35-27-0-5-11-23-51-43-65281-10-16-GREASE-GREASE`.
  *   - chrome-124 (proxy for chrome-128): groups `GREASE-25497-29-23-24`
  *     (X25519Kyber768), app_settings 17513.
  *   - chrome-131 / chrome-133a / chrome-136 (proxies for chrome-140):
@@ -83,9 +83,18 @@ describe("chrome profiles — cipher suites", () => {
 });
 
 describe("chrome profiles — extension order", () => {
+    it("chrome-120 extension order matches the curl_cffi tls.peet.ws capture", () => {
+        // Full wire order (GREASE excluded), captured via curl_cffi against
+        // tls.peet.ws. This is the byte-level ground truth that JA3/peetprint
+        // fingerprint servers on.
+        expect([...chrome.chrome120.tls.extensionOrder]).toEqual([
+            13, 65037, 17513, 45, 18, 35, 27, 0, 5, 11, 23, 51, 43, 65281, 10, 16,
+        ]);
+    });
+
     it("uses the canonical pre-permutation order matching the peetprint", () => {
-        // The peetprint-normalized order is
-        // 0-10-11-13-16-APP_SETTINGS-18-23-27-35-43-45-5-51-65037-65281.
+        // The curl_cffi capture order is
+        // 13-65037-APP_SETTINGS-45-18-35-27-0-5-11-23-51-43-65281-10-16.
         // pre_shared_key (41) must never appear; ECH (65037) must be present.
         for (const p of Object.values(chrome)) {
             expect(p.tls.extensionOrder).not.toContain(41);
@@ -95,13 +104,14 @@ describe("chrome profiles — extension order", () => {
 
     it("orders extensions identically except for the app_settings slot", () => {
         // Every version shares the same shape; only the application_settings
-        // extension code differs (17513 vs 17613).
-        const base = [0, 10, 11, 13, 16, 18, 23, 27, 35, 43, 45, 5, 51, 65037, 65281];
+        // extension code differs (17513 vs 17613). The app_settings slot sits
+        // at index 2 in the curl_cffi capture order.
+        const base = [13, 65037, 45, 18, 35, 27, 0, 5, 11, 23, 51, 43, 65281, 10, 16];
         for (const p of Object.values(chrome)) {
             const order = [...p.tls.extensionOrder];
             // Remove the version-dependent slot before comparing the rest.
             const idx = order.indexOf(17513) >= 0 ? order.indexOf(17513) : order.indexOf(17613);
-            expect(idx).toBe(5);
+            expect(idx).toBe(2);
             order.splice(idx, 1);
             expect(order).toEqual(base);
         }

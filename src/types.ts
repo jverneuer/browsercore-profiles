@@ -43,6 +43,12 @@ export interface TlsProfile {
     readonly signatureAlgorithms: readonly string[];
     /** record_size_limit extension value, if advertised. Absent when not sent. */
     readonly recordSizeLimit?: number;
+    /** EC point formats offered. Chrome: [0x00 (uncompressed)]. */
+    readonly ecPointFormats?: readonly number[];
+    /** compress_certificate algorithms. Chrome: [0x02 (brotli)]. */
+    readonly compressCertificateAlgorithms?: readonly number[];
+    /** Record padding target in bytes. Chrome: 512. */
+    readonly recordPadding?: number;
     /** Whether this browser randomizes with GREASE values (RFC 8701). */
     readonly grease: boolean;
 }
@@ -66,6 +72,14 @@ export interface Http2Profile {
     readonly weight: number;
     /** Default priority dependency / exclusive flag, if any. */
     readonly priority?: Http2Priority;
+    /** Wire order of SETTINGS ids (fingerprint signal). Chrome: [1, 2, 4, 6]. */
+    readonly settingsOrder?: readonly number[];
+    /** Whether to inject GREASE settings. Chrome: true. */
+    readonly grease?: boolean;
+    /** Connection-level WINDOW_UPDATE value in preface. Chrome: 15663105. */
+    readonly connectionWindowUpdate?: number;
+    /** Pseudo-header order. Chrome: ["method", "authority", "scheme", "path"]. */
+    readonly pseudoHeaderOrder?: readonly string[];
 }
 
 /**

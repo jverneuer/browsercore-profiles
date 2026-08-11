@@ -448,3 +448,133 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
         expect(result.diffs.some((d) => d.path === "tls.cipherSuites[0]")).toBe(true);
     });
 });
+
+describe("buildExpectedClientHello — ecPointFormats and compressCertificateAlgorithms", () => {
+    it("projects ecPointFormats and compressCertificateAlgorithms for Chrome", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        expect(expected.ecPointFormats).toEqual([0x00]);
+        expect(expected.compressCertificateAlgorithms).toEqual([0x02]);
+    });
+
+    it("projects Firefox compress_certificate with brotli + zlib order", () => {
+        const profile = getProfile("firefox-135" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        expect(expected.ecPointFormats).toEqual([0x00]);
+        // Firefox offers both brotli (0x02) and zlib (0x01) — distinct from Chrome.
+        expect(expected.compressCertificateAlgorithms).toEqual([0x02, 0x01]);
+    });
+
+    it("returns undefined for these fields when the profile doesn't define them", () => {
+        // firefox-120 predates the impersonation data and lacks these fields.
+        const profile = getProfile("firefox-120" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        expect(expected.ecPointFormats).toBeUndefined();
+        expect(expected.compressCertificateAlgorithms).toBeUndefined();
+    });
+});
+
+describe("validateProfileAgainstCapture — ecPointFormats and compressCertificateAlgorithms", () => {
+    it("reports ok when ecPointFormats and compressCertificateAlgorithms match", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+            ecPointFormats: expected.ecPointFormats,
+            compressCertificateAlgorithms: expected.compressCertificateAlgorithms,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
+    });
+
+    it("reports diffs when ecPointFormats mismatch", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+            ecPointFormats: [0x01], // ANSI X9.62 instead of uncompressed (0x00)
+            compressCertificateAlgorithms: expected.compressCertificateAlgorithms,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.ecPointFormats[0]")).toBe(true);
+    });
+
+    it("reports diffs when compressCertificateAlgorithms mismatch", () => {
+        const profile = getProfile("firefox-135" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: false,
+            ecPointFormats: expected.ecPointFormats,
+            compressCertificateAlgorithms: [0x02], // missing zlib (0x01)
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.compressCertificateAlgorithms[1]")).toBe(true);
+    });
+
+    it("does not diff when the capture omits these fields (backward compatible)", () => {
+        // Older captures lack ecPointFormats / compressCertificateAlgorithms.
+        // Their absence must not produce false-positive diffs.
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+            // ecPointFormats and compressCertificateAlgorithms intentionally omitted
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
+    });
+
+    it("does not diff when the profile omits these fields", () => {
+        // firefox-120 has no impersonation fields; a capture that includes them
+        // should not cause false-positive diffs.
+        const profile = getProfile("firefox-120" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: false,
+            ecPointFormats: [0x00],
+            compressCertificateAlgorithms: [0x02],
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
+    });
+});

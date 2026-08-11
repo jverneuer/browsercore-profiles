@@ -74,6 +74,24 @@ const firefoxHttp2Base = {
     weight: 256,
 } as const;
 
+/**
+ * Impersonation fields shared by firefox-128 and firefox-135 (but not
+ * firefox-120, which predates the impersonation data). Firefox differs from
+ * Chrome: no HTTP/2 GREASE, a distinct connection WINDOW_UPDATE, and
+ * compress_certificate offers brotli + zlib (not just brotli).
+ */
+const firefoxTlsImpersonation = {
+    ecPointFormats: [0x00],
+    compressCertificateAlgorithms: [0x02, 0x01],
+} as const;
+
+const firefoxHttp2Impersonation = {
+    settingsOrder: [1, 2, 4, 6],
+    grease: false,
+    connectionWindowUpdate: 12517377,
+    pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
+} as const;
+
 const firefoxHttp1Base = {
     connection: "keep-alive",
     acceptEncoding: "gzip, deflate, br",
@@ -132,10 +150,12 @@ export const firefox128: BrowserProfile = {
     version: "128.0",
     tls: {
         ...firefoxTlsBase,
+        ...firefoxTlsImpersonation,
         cipherSuites: firefoxTlsCiphers,
     },
     http2: {
         ...firefoxHttp2Base,
+        ...firefoxHttp2Impersonation,
         settings: {
             headerTableSize: 65536,
             enablePush: false,
@@ -166,10 +186,12 @@ export const firefox135: BrowserProfile = {
     version: "135.0",
     tls: {
         ...firefoxTlsBase,
+        ...firefoxTlsImpersonation,
         cipherSuites: firefoxTlsCiphers,
     },
     http2: {
         ...firefoxHttp2Base,
+        ...firefoxHttp2Impersonation,
         settings: {
             headerTableSize: 65536,
             enablePush: false,

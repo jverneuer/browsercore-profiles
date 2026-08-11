@@ -50,6 +50,9 @@ const chromeTlsBase = {
         "rsa_pkcs1_sha512",
     ],
     grease: true,
+    ecPointFormats: [0x00],
+    compressCertificateAlgorithms: [0x02],
+    recordPadding: 512,
 } as const;
 
 const chromeHttp2Base = {
@@ -57,6 +60,10 @@ const chromeHttp2Base = {
     maxFrameSize: 16384,
     headerTableSize: 65536,
     weight: 256,
+    settingsOrder: [1, 2, 4, 6],
+    grease: true,
+    connectionWindowUpdate: 15663105,
+    pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
 } as const;
 
 const chromeHttp2Settings = {

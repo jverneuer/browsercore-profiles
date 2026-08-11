@@ -1,30 +1,28 @@
 /**
  * Microsoft Edge fingerprint definitions.
  *
- * Edge is Chromium-based, so its TLS fingerprint is close to Chrome's — same
- * GREASE behavior, same cipher families — but differs in the advertised user
- * agent string, the `sec-ch-ua` brand list (includes "Microsoft Edge"), and a
- * slightly different extension order. HTTP/2 settings track Chrome closely.
- * Values mirror curl-impersonate's Edge 101 ground-truth signature byte-for-byte
- * (see tests/profiles-edge.test.ts for the wire-code mapping).
+ * Edge is Chromium-based, so its TLS fingerprint matches Chrome's — same GREASE
+ * behavior, same cipher families, and the same extension wire order. Edge
+ * differs only in the advertised user agent string and the `sec-ch-ua` brand
+ * list (includes "Microsoft Edge"). HTTP/2 settings track Chrome closely.
+ * Cipher / group / version / signature values mirror curl-impersonate's
+ * ground-truth signature; the extension order is shared verbatim with Chrome
+ * via {@link chromeExtensionOrder} (captured via curl_cffi against tls.peet.ws).
  */
 
 import type { BrowserProfile, ProfileId } from "../types.js";
+import { chromeExtensionOrder } from "./chrome.js";
 
 /** TLS 1.3 GREASE placeholder cipher (0x?a?a) Edge inserts at the top of the list. */
 const GREASE = "TLS_GREASE_RESERVED_0";
 
 /**
- * Edge TLS extension order, in wire order, taken verbatim from the
- * curl-impersonate signature. GREASE extension slots are excluded (their values
- * are randomized per-connection and the profile stores literal wire codes).
+ * Edge shares Chrome's extension order (modern Chromium 120+ is the base for
+ * edge-120 / edge-128). Both Edge profiles use application_settings_old (17513),
+ * predating the 17613 switch that landed in Chrome ~132.
  */
-const EDGE_EXTENSION_ORDER: readonly number[] = [
-    0, 23, 65281, 10, 11, 35, 16, 5, 13, 18, 51, 45, 43, 27, 17513, 21,
-];
-
 const edgeTlsBase = {
-    extensionOrder: EDGE_EXTENSION_ORDER,
+    extensionOrder: chromeExtensionOrder(17513),
     supportedVersions: ["TLS 1.3", "TLS 1.2"],
     keyShareGroups: ["x25519", "secp256r1", "secp384r1"],
     signatureAlgorithms: [

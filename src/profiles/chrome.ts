@@ -15,7 +15,8 @@
  *
  * Chrome permutes its extension order at runtime (tls_permute_extensions), so
  * `extensionOrder` stores the canonical pre-permutation seed that
- * curl-impersonate configures — matching the peetprint's normalized order.
+ * curl-impersonate configures. The order was verified via a curl_cffi capture
+ * against tls.peet.ws, which reports the normalized extension sequence.
  * GREASE slots are tracked separately via the `grease` flag; the runtime
  * randomizes the actual 0x?a?a values per RFC 8701.
  */
@@ -26,15 +27,20 @@ import type { BrowserProfile, ProfileId } from "../types.js";
 const GREASE = "TLS_GREASE_RESERVED_0";
 
 /**
- * Canonical (pre-permutation) Chrome extension order.
+ * Canonical Chrome extension order (wire order, GREASE slots excluded).
  *
- * Mirrors the peetprint-normalized order `0-10-11-13-16-APP_SETTINGS-18-23-27-
- * 35-43-45-5-51-65037-65281`. The only version-dependent slot is the
- * application_settings extension: 17513 (application_settings_old) through
- * chrome ~131, then 17613 (application_settings) from chrome ~132 onward.
+ * Captured via curl_cffi (curl-impersonate) against tls.peet.ws, which reports
+ * the normalized order Chrome's BoringSSL emits before runtime extension
+ * permutation (tls_permute_extensions). Notable: signature_algorithms (13)
+ * leads, server_name (0) sits mid-list, and supported_groups (10) / ALPN (16)
+ * trail near the end. The only version-dependent slot is application_settings:
+ * 17513 (application_settings_old) through chrome ~131, then 17613
+ * (application_settings) from chrome ~132 onward.
+ *
+ * Shared by Edge (Chromium-based) — see {@link ../profiles/edge.ts}.
  */
-const chromeExtensionOrder = (appSettings: number): readonly number[] => [
-    0, 10, 11, 13, 16, appSettings, 18, 23, 27, 35, 43, 45, 5, 51, 65037, 65281,
+export const chromeExtensionOrder = (appSettings: number): readonly number[] => [
+    13, 65037, appSettings, 45, 18, 35, 27, 0, 5, 11, 23, 51, 43, 65281, 10, 16,
 ];
 
 const chromeTlsBase = {

@@ -1,12 +1,12 @@
 /**
- * Byte-accurate verification that the Edge profiles match curl-impersonate's
- * ground-truth TLS signature (Edge 101 on Windows 10).
+ * Byte-accurate verification that the Edge profiles match their ground-truth
+ * TLS signature.
  *
- * Ground truth source:
- *   gh api repos/lwthiker/curl-impersonate/contents/tests/signatures/edge.yaml
- *
- * Every expected wire code below is copied verbatim from that signature, so a
- * mismatch means the profile has drifted from the real browser.
+ * Cipher suites, supported groups, supported versions, and signature
+ * algorithms mirror curl-impersonate's signature verbatim. The extension wire
+ * order is shared with Chrome: modern Edge (Chromium 120+, the base for
+ * edge-120 / edge-128) emits the same BoringSSL extension sequence, captured
+ * via curl_cffi against tls.peet.ws.
  */
 
 import { describe, expect, it } from "vitest";
@@ -77,27 +77,28 @@ describe("Edge profiles — curl-impersonate ground truth", () => {
         ]);
     });
 
-    it("extension order matches the curl-impersonate signature exactly (in wire order)", () => {
-        // From edge_101.signature.tls_client_hello.extensions, GREASE slots
-        // excluded (their values are randomized per-connection).
+    it("extension order matches Chrome (Chromium 120+) — curl_cffi tls.peet.ws capture", () => {
+        // Modern Edge is Chromium-based and shares Chrome's BoringSSL extension
+        // sequence. GREASE slots excluded (their values are randomized per
+        // connection). Captured via curl_cffi against tls.peet.ws.
         const got = buildExpectedClientHello(EdgeProfiles.edge120, "").extensionTypes;
         expect(got).toEqual([
+            13, // signature_algorithms
+            65037, // encrypted_client_hello (ECH)
+            17513, // application_settings_old (ALPS)
+            45, // psk_key_exchange_modes
+            18, // signed_certificate_timestamp
+            35, // session_ticket
+            27, // compress_certificate
             0, // server_name
+            5, // status_request
+            11, // ec_point_formats
             23, // extended_master_secret
+            51, // key_share
+            43, // supported_versions
             65281, // renegotiation_info
             10, // supported_groups
-            11, // ec_point_formats
-            35, // session_ticket
             16, // application_layer_protocol_negotiation
-            5, // status_request
-            13, // signature_algorithms
-            18, // signed_certificate_timestamp
-            51, // keyshare
-            45, // psk_key_exchange_modes
-            43, // supported_versions
-            27, // compress_certificate
-            17513, // application_settings (ALPS)
-            21, // padding
         ]);
     });
 

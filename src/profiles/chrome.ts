@@ -67,7 +67,11 @@ const chromeHttp2Base = {
     headerTableSize: 65536,
     weight: 256,
     settingsOrder: [1, 2, 4, 6],
-    grease: true,
+    // Real Chrome (131/140, per the tls.peet.ws oracle captures in
+    // browsercore-testing) sends exactly SETTINGS ids [1, 2, 4, 6] — no
+    // GREASE setting. A greased id made strict h2 servers (peet.ws) drop the
+    // connection and diverged from the golden akamai h2 fingerprint.
+    grease: false,
     connectionWindowUpdate: 15663105,
     pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
 } as const;

@@ -47,7 +47,9 @@ const edgeHttp2Base = {
     headerTableSize: 65536,
     weight: 256,
     settingsOrder: [1, 2, 4, 6],
-    grease: true,
+    // Real Edge (Chromium) sends no GREASE setting in the h2 preface — see
+    // the chrome-140 note in chrome.ts.
+    grease: false,
     connectionWindowUpdate: 15663105,
     pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
 } as const;

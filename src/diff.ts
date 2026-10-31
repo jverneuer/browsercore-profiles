@@ -126,6 +126,11 @@ function walk(
     emit(out, path, a, b);
 }
 
+/** Multiset sort key: stable serialization for objects/arrays, String() otherwise. */
+function arraySortKey(v: unknown): string {
+    return isObject(v) || isArray(v) ? stableStringify(v) : String(v);
+}
+
 /**
  * Diff two arrays. In ordered mode (default) compares element-by-element so
  * reordering is reported. In unordered mode compares as multisets.
@@ -156,11 +161,8 @@ function walkArray(
 
     // Unordered: compare as multisets of serialized keys. A single whole-array
     // diff is reported when membership differs.
-    const sortKey = (v: unknown): string =>
-        isObject(v) || isArray(v) ? stableStringify(v) : String(v);
-
-    const sortedA = a.map((v) => sortKey(v)).sort();
-    const sortedB = b.map((v) => sortKey(v)).sort();
+    const sortedA = a.map((v) => arraySortKey(v)).sort();
+    const sortedB = b.map((v) => arraySortKey(v)).sort();
 
     let equal = sortedA.length === sortedB.length;
     if (equal) {

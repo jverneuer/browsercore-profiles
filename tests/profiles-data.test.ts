@@ -288,9 +288,11 @@ describe("shipped profiles — HTTP/2 impersonation fields", () => {
         }
     });
 
-    it("Chrome and Edge inject GREASE in HTTP/2", () => {
+    it("Chrome and Edge do NOT grease the HTTP/2 SETTINGS frame", () => {
+        // Real Chrome 131/140 SETTINGS carry exactly ids [1, 2, 4, 6] (see the
+        // tls.peet.ws oracle captures) — no GREASE setting entry.
         for (const p of [...Object.values(ChromeProfiles), ...Object.values(EdgeProfiles)]) {
-            expect(p.http2.grease, `${p.id}`).toBe(true);
+            expect(p.http2.grease, `${p.id}`).toBe(false);
         }
     });
 

@@ -14,6 +14,10 @@
  *     (X25519Kyber768), app_settings 17513.
  *   - chrome-131 / chrome-133a / chrome-136 (proxies for chrome-140):
  *     groups `GREASE-4588-29-23-24` (X25519MLKEM768), app_settings 17613.
+ *   - chrome-131 oracle capture (browsercore-testing/captures/chrome-131/
+ *     oracle_capture.reference.json): SETTINGS `1:65536;2:0;4:6291456;6:262144`,
+ *     key_share GREASE(1B)+4588(1216B)+29(32B), HEADERS close with
+ *     `priority: u=0, i`.
  */
 import { describe, expect, it } from "vitest";
 import { ChromeProfiles } from "../src/profiles/chrome.js";
@@ -181,13 +185,26 @@ describe("chrome profiles — supported groups", () => {
     });
 
     it("chrome-140 adds the X25519MLKEM768 hybrid group (chrome-131+)", () => {
-        // chrome-131 capture: groups GREASE-4588-29-23-24.
-        expect(chrome.chrome140.tls.keyShareGroups).toEqual([
+        // chrome-131 oracle key_share: GREASE(1B) + 4588(1216B) + 29(32B) —
+        // exactly three entries. The GREASE slot comes from the `grease` flag
+        // (randomized per connection), so the deterministic list is two names.
+        expect(chrome.chrome140.tls.keyShareGroups).toEqual(["X25519MLKEM768", "x25519"]);
+    });
+
+    it("chrome-140 advertises the shared groups plus P-256/P-384 in supported_groups", () => {
+        // chrome-131 oracle supported_groups: GREASE, 4588, 29, 23, 24. Chrome
+        // advertises secp256r1/secp384r1 but never shares them.
+        expect(chrome.chrome140.tls.keyShareAdvertisedGroups).toEqual([
             "X25519MLKEM768",
             "x25519",
             "secp256r1",
             "secp384r1",
         ]);
+    });
+
+    it("chrome-140 advertised groups project to wire codes 0x11ec, 0x1d, 0x17, 0x18", () => {
+        const wire = expectedWire(chrome.chrome140).keyShareAdvertisedGroups;
+        expect(wire).toEqual([0x11ec, 0x001d, 0x0017, 0x0018]);
     });
 
     it("the new hybrid groups project to correct IANA codes", () => {
@@ -215,20 +232,50 @@ describe("chrome profiles — HTTP/2 settings", () => {
     });
 
     it("matches Chrome's known SETTINGS frame values", () => {
+        // Real Chrome sends exactly four settings (ids 1, 2, 4, 6). It does NOT
+        // send MAX_CONCURRENT_STREAMS (3) or MAX_FRAME_SIZE (5) — 16384 is the
+        // RFC 9113 default, so advertising it would diverge from the real frame.
         for (const p of Object.values(chrome)) {
             expect(p.http2.settings.headerTableSize).toBe(65536);
             expect(p.http2.settings.enablePush).toBe(false);
             expect(p.http2.settings.initialWindowSize).toBe(6291456);
-            expect(p.http2.settings.maxFrameSize).toBe(16384);
+            expect(p.http2.settings.maxHeaderListSize).toBe(262144);
+            expect(p.http2.settings.maxConcurrentStreams).toBeUndefined();
+            expect(p.http2.settings.maxFrameSize).toBeUndefined();
         }
     });
 
-    it("keeps settings in sync with their top-level twins", () => {
+    it("keeps settings in sync with their top-level twins when the setting is sent", () => {
+        // Chrome omits maxFrameSize from SETTINGS (default value), so the twin
+        // only applies to settings the profile actually carries.
         for (const p of Object.values(chrome)) {
             expect(p.http2.settings.initialWindowSize).toBe(p.http2.initialWindowSize);
-            expect(p.http2.settings.maxFrameSize).toBe(p.http2.maxFrameSize);
+            if (p.http2.settings.maxFrameSize !== undefined) {
+                expect(p.http2.settings.maxFrameSize).toBe(p.http2.maxFrameSize);
+            }
             expect(p.http2.settings.headerTableSize).toBe(p.http2.headerTableSize);
         }
+    });
+
+    it("sends exactly the four SETTINGS ids in settingsOrder", () => {
+        for (const p of Object.values(chrome)) {
+            expect(p.http2.settingsOrder).toEqual([1, 2, 4, 6]);
+            expect(Object.keys(p.http2.settings)).toHaveLength(4);
+        }
+    });
+});
+
+describe("chrome profiles — HTTP/2 default headers", () => {
+    it("chrome-140 closes h2 requests with the extensible priority header", () => {
+        // chrome-131 oracle HEADERS frame ends with `priority: u=0, i`. This is
+        // an h2-only header — it must not leak into the HTTP/1.1 defaults.
+        expect(chrome.chrome140.http2.http2DefaultHeaders).toEqual({ "priority": "u=0, i" });
+        expect(chrome.chrome140.http1.defaultHeaders["priority"]).toBeUndefined();
+    });
+
+    it("chrome-120 and chrome-128 carry no h2 default headers data (no oracle)", () => {
+        expect(chrome.chrome120.http2.http2DefaultHeaders).toBeUndefined();
+        expect(chrome.chrome128.http2.http2DefaultHeaders).toBeUndefined();
     });
 });
 

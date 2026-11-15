@@ -9,7 +9,9 @@
  * A key honesty: GREASE (RFC 8701) values are randomized per-connection, so a
  * profile cannot predict the exact GREASE bytes. We handle this where the data
  * lets us — cipher suites mark GREASE slots with a named placeholder, so a
- * GREASE slot in the profile matches any GREASE-pattern byte pair in the capture.
+ * GREASE slot in the profile matches any GREASE-pattern byte pair in the
+ * capture, and named-group lists (key_share / supported_groups) are diffed
+ * with the capture's GREASE-pattern entries skipped for greasing profiles.
  * Extension GREASE is not handled here because the profile stores literal wire
  * codes for extensions (not placeholders), so it cannot robustly flag a GREASE
  * extension slot. See the per-field comments below.
@@ -34,8 +36,13 @@ export interface TlsCapture {
     readonly extensionTypes: readonly number[];
     /** Supported versions advertised, as 2-byte codes, highest first. */
     readonly supportedVersions: readonly number[];
-    /** Key-share named-group ids offered. */
+    /** Key-share named-group ids offered in the key_share extension. */
     readonly keyShareGroups: readonly number[];
+    /**
+     * Named-group ids advertised in supported_groups. Superset of
+     * {@link keyShareGroups}. Absent when the capture tool doesn't record them.
+     */
+    readonly keyShareAdvertisedGroups?: readonly number[];
     /** Signature algorithm codes offered. */
     readonly signatureAlgorithms: readonly number[];
     /** EC point formats observed (wire codes). Absent when the capture tool doesn't record them. */
@@ -59,6 +66,12 @@ export interface ClientHelloExpected {
     readonly supportedVersions: readonly number[];
     /** Key-share named-group ids. */
     readonly keyShareGroups: readonly number[];
+    /**
+     * Named-group ids advertised in supported_groups. Undefined when the
+     * profile doesn't split advertised from shared groups (consumers then
+     * derive advertised = keyShareGroups).
+     */
+    readonly keyShareAdvertisedGroups?: readonly number[];
     /** Signature algorithm codes. */
     readonly signatureAlgorithms: readonly number[];
     /** EC point formats offered (wire codes). Undefined when the profile doesn't specify them. */
@@ -165,6 +178,13 @@ export function buildExpectedClientHello(
         grease: profile.tls.grease,
         // Conditionally spread optional fields so absent properties are truly
         // absent (exactOptionalPropertyTypes forbids assigning undefined).
+        ...(profile.tls.keyShareAdvertisedGroups
+            ? {
+                  keyShareAdvertisedGroups: profile.tls.keyShareAdvertisedGroups.map(
+                      mapNamedGroup,
+                  ),
+              }
+            : {}),
         ...(profile.tls.ecPointFormats
             ? { ecPointFormats: Array.from(profile.tls.ecPointFormats) }
             : {}),
@@ -203,6 +223,26 @@ function diffNumberArray(
             out.push({ path: `${path}[${i}]`, a: e, b: c });
         }
     }
+}
+
+/**
+ * Diff named-group lists with GREASE awareness. Profile group lists never
+ * carry GREASE names — the profile's `grease` flag drives those randomized
+ * slots (see the convention note in profiles/chrome.ts) — so for a greasing
+ * profile the capture's GREASE-pattern entries are skipped rather than counted
+ * as mismatches. Everything else is diffed in wire order.
+ */
+function diffGroupArray(
+    path: string,
+    profileGreased: boolean,
+    expected: readonly number[],
+    capture: readonly number[],
+    out: ProfileDiff[],
+): void {
+    const captureGroups = profileGreased
+        ? capture.filter((v) => !isGreaseValue(v))
+        : [...capture];
+    diffNumberArray(path, expected, captureGroups, out);
 }
 
 /** Diff cipher suites with GREASE awareness: a GREASE slot matches any GREASE-pattern value. */
@@ -271,13 +311,35 @@ export function validateProfileAgainstCapture(
     diffCipherSuites(profile, expected.cipherSuites, capture.cipherSuites, diffs);
     diffNumberArray("tls.extensionTypes", expected.extensionTypes, capture.extensionTypes, diffs);
     diffNumberArray("tls.supportedVersions", expected.supportedVersions, capture.supportedVersions, diffs);
-    diffNumberArray("tls.keyShareGroups", expected.keyShareGroups, capture.keyShareGroups, diffs);
+    diffGroupArray(
+        "tls.keyShareGroups",
+        profile.tls.grease,
+        expected.keyShareGroups,
+        capture.keyShareGroups,
+        diffs,
+    );
     diffNumberArray(
         "tls.signatureAlgorithms",
         expected.signatureAlgorithms,
         capture.signatureAlgorithms,
         diffs,
     );
+
+    // Advertised (supported_groups) list: only diff when both the profile
+    // splits it from the shared list and the capture records it. Captures that
+    // predate the split fall back to the keyShareGroups comparison above.
+    if (
+        expected.keyShareAdvertisedGroups !== undefined &&
+        capture.keyShareAdvertisedGroups !== undefined
+    ) {
+        diffGroupArray(
+            "tls.keyShareAdvertisedGroups",
+            profile.tls.grease,
+            expected.keyShareAdvertisedGroups,
+            capture.keyShareAdvertisedGroups,
+            diffs,
+        );
+    }
 
     // Optional impersonation fields: only diff when both the profile and the
     // capture record them. Older captures may not include ecPointFormats or

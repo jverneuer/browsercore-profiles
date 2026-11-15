@@ -37,8 +37,27 @@ export interface TlsProfile {
     readonly extensionOrder: readonly number[];
     /** Supported TLS versions, highest first. */
     readonly supportedVersions: readonly string[];
-    /** Key-share groups offered (TLS 1.3). */
+    /**
+     * Named groups actually shared in the TLS 1.3 key_share extension, in wire
+     * order. A strict subset (or equal) of {@link keyShareAdvertisedGroups}.
+     *
+     * Real browsers share fewer groups than they advertise: Chrome 131+ shares
+     * only X25519MLKEM768 + x25519 while advertising P-256/P-384 as well.
+     * GREASE key-share slots are NOT listed here — the `grease` flag drives
+     * them (values are randomized per connection, RFC 8701).
+     */
     readonly keyShareGroups: readonly string[];
+    /**
+     * Named groups advertised in the supported_groups extension, in wire order
+     * — the superset the browser claims to support. Distinct from
+     * {@link keyShareGroups} (the groups actually shared in key_share).
+     *
+     * Cross-repo contract field: the name `keyShareAdvertisedGroups` is fixed.
+     * Optional for backwards compatibility: when absent, consumers derive the
+     * advertised list from `keyShareGroups` (the pre-0.2.4 behavior).
+     * GREASE slots are not listed — the `grease` flag drives them.
+     */
+    readonly keyShareAdvertisedGroups?: readonly string[];
     /** Signature algorithms offered. */
     readonly signatureAlgorithms: readonly string[];
     /** record_size_limit extension value, if advertised. Absent when not sent. */
@@ -80,6 +99,17 @@ export interface Http2Profile {
     readonly connectionWindowUpdate?: number;
     /** Pseudo-header order. Chrome: ["method", "authority", "scheme", "path"]. */
     readonly pseudoHeaderOrder?: readonly string[];
+    /**
+     * Headers real browsers add to every HTTP/2 request but not to HTTP/1.1
+     * (h2-only defaults, absent from {@link Http1Profile.defaultHeaders}).
+     * Key order mirrors the browser's wire order.
+     *
+     * Cross-repo contract field: the name `http2DefaultHeaders` is fixed.
+     * Optional: absent → consumers fall back to the HTTP/1.1 defaults.
+     * Chrome 131+: { "priority": "u=0, i" }; Firefox 133+: additionally
+     * { "te": "trailers" } (priority on Firefox landed in 133).
+     */
+    readonly http2DefaultHeaders?: Readonly<Record<string, string>>;
 }
 
 /**

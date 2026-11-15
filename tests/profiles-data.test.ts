@@ -107,6 +107,33 @@ describe("shipped profiles — TLS invariants", () => {
         }
     });
 
+    it("advertised key-share groups (when split) are unique and a superset of the shared groups", () => {
+        // A browser cannot share a group it does not advertise; chrome-140 is
+        // the split reference (shares MLKEM+x25519, advertises +P-256/P-384).
+        for (const p of allProfiles) {
+            const advertised = p.tls.keyShareAdvertisedGroups;
+            if (advertised === undefined) {
+                continue;
+            }
+            expect(new Set(advertised).size, `${p.id}`).toBe(advertised.length);
+            const advertisedSet = new Set(advertised);
+            for (const g of p.tls.keyShareGroups) {
+                expect(advertisedSet.has(g), `${p.id}: shared group ${g} must be advertised`).toBe(true);
+            }
+        }
+    });
+
+    it("group lists never carry GREASE placeholders — the grease flag drives those slots", () => {
+        // GREASE values are randomized per connection (RFC 8701), so group
+        // lists carry deterministic names only; see profiles/chrome.ts.
+        for (const p of allProfiles) {
+            const groups = [...p.tls.keyShareGroups, ...(p.tls.keyShareAdvertisedGroups ?? [])];
+            for (const g of groups) {
+                expect(g.includes("GREASE"), `${p.id}: GREASE placeholder in group list`).toBe(false);
+            }
+        }
+    });
+
     it("signature algorithms have no duplicates, except Safari's intentional rsa_pss_rsae_sha384 twin", () => {
         // curl-impersonate's ground-truth Safari signature intentionally duplicates
         // rsa_pss_rsae_sha384 (0x0805) — a real WebKit quirk preserved by patching
@@ -134,6 +161,9 @@ describe("shipped profiles — TLS invariants", () => {
             }
             for (const g of p.tls.keyShareGroups) {
                 expect(NAMED_GROUP_CODES[g], `${p.id}: unknown group ${g}`).toBeDefined();
+            }
+            for (const g of p.tls.keyShareAdvertisedGroups ?? []) {
+                expect(NAMED_GROUP_CODES[g], `${p.id}: unknown advertised group ${g}`).toBeDefined();
             }
             for (const s of p.tls.signatureAlgorithms) {
                 expect(SIGNATURE_SCHEME_CODES[s], `${p.id}: unknown sig scheme ${s}`).toBeDefined();
@@ -166,11 +196,48 @@ describe("shipped profiles — HTTP/2 invariants", () => {
     it("settings fields agree with their top-level twins", () => {
         // http2 exposes both `settings.{initialWindowSize,maxFrameSize,headerTableSize}`
         // and top-level aliases; they must match or downstream tuning logic splits
-        // on which value it reads.
+        // on which value it reads. The maxFrameSize twin only applies when the
+        // browser actually sends SETTINGS_MAX_FRAME_SIZE — real Chrome omits it
+        // (16384 is the RFC 9113 default), so the setting is absent while the
+        // top-level tuning value stays.
         for (const p of allProfiles) {
             expect(p.http2.settings.initialWindowSize, `${p.id}: initialWindowSize`).toBe(p.http2.initialWindowSize);
-            expect(p.http2.settings.maxFrameSize, `${p.id}: maxFrameSize`).toBe(p.http2.maxFrameSize);
+            if (p.http2.settings.maxFrameSize !== undefined) {
+                expect(p.http2.settings.maxFrameSize, `${p.id}: maxFrameSize`).toBe(p.http2.maxFrameSize);
+            }
             expect(p.http2.settings.headerTableSize, `${p.id}: headerTableSize`).toBe(p.http2.headerTableSize);
+        }
+    });
+
+    it("settings entries are exactly the ids listed in settingsOrder (when ordered)", () => {
+        // A settings entry whose wire id is missing from settingsOrder would
+        // never be serialized — or worse, silently reordered — so the two must
+        // stay in lockstep. Scoped to the oracle-aligned families: Safari's
+        // SETTINGS still carry legacy curl-impersonate values (ids 3 and 5)
+        // against a [1, 2, 4, 6] order and needs its own WebKit capture before
+        // its data can change.
+        const settingWireIds: Readonly<Record<string, number>> = {
+            headerTableSize: 1,
+            enablePush: 2,
+            maxConcurrentStreams: 3,
+            initialWindowSize: 4,
+            maxFrameSize: 5,
+            maxHeaderListSize: 6,
+        };
+        const oracleAligned = [
+            ...Object.values(ChromeProfiles),
+            ...Object.values(FirefoxProfiles),
+            ...Object.values(EdgeProfiles),
+        ];
+        for (const p of oracleAligned) {
+            const order = p.http2.settingsOrder;
+            if (order === undefined) {
+                continue;
+            }
+            const sentIds = Object.keys(p.http2.settings)
+                .map((name) => settingWireIds[name])
+                .sort((a, b) => a - b);
+            expect(sentIds, `${p.id}: settings keys vs settingsOrder`).toEqual([...order].sort((a, b) => a - b));
         }
     });
 
@@ -192,6 +259,26 @@ describe("shipped profiles — HTTP/2 invariants", () => {
         expect(edge.http2.initialWindowSize).toBe(chrome.http2.initialWindowSize);
         expect(edge.http2.maxFrameSize).toBe(chrome.http2.maxFrameSize);
         expect(edge.http2.headerTableSize).toBe(chrome.http2.headerTableSize);
+    });
+
+    it("h2 default headers (when present) are non-empty, lowercase-named, and no h1 overlap", () => {
+        // The field exists precisely for h2-only headers (`priority`, `te`);
+        // an overlap with the HTTP/1.1 defaults would let the same header be
+        // applied twice or fight over precedence.
+        for (const p of allProfiles) {
+            const headers = p.http2.http2DefaultHeaders;
+            if (headers === undefined) {
+                continue;
+            }
+            for (const [name, value] of Object.entries(headers)) {
+                expect(name, `${p.id}: h2 header name must be lowercase`).toBe(name.toLowerCase());
+                expect(value.length, `${p.id}: h2 header ${name} must be non-empty`).toBeGreaterThan(0);
+                expect(
+                    p.http1.defaultHeaders[name],
+                    `${p.id}: h2 default ${name} duplicates an h1 default`,
+                ).toBeUndefined();
+            }
+        }
     });
 });
 
@@ -309,9 +396,18 @@ describe("shipped profiles — HTTP/2 impersonation fields", () => {
         }
     });
 
-    it("Firefox 128+ uses the same SETTINGS id wire order as Chrome", () => {
-        expect(FirefoxProfiles.firefox128.http2.settingsOrder).toEqual([1, 2, 4, 6]);
-        expect(FirefoxProfiles.firefox135.http2.settingsOrder).toEqual([1, 2, 4, 6]);
+    it("Firefox 128+ uses SETTINGS id wire order [1, 2, 4, 5] (firefox-133 oracle)", () => {
+        // Firefox ends its SETTINGS with MAX_FRAME_SIZE (5), where Chrome sends
+        // MAX_HEADER_LIST_SIZE (6) — akamai `1:65536;2:0;4:131072;5:16384|...|m,p,a,s`.
+        expect(FirefoxProfiles.firefox128.http2.settingsOrder).toEqual([1, 2, 4, 5]);
+        expect(FirefoxProfiles.firefox135.http2.settingsOrder).toEqual([1, 2, 4, 5]);
+    });
+
+    it("Firefox 128+ uses Firefox's pseudo-header order (distinct from Chrome)", () => {
+        // firefox-133 oracle HEADERS: :method, :path, :authority, :scheme.
+        const order = ["method", "path", "authority", "scheme"];
+        expect(FirefoxProfiles.firefox128.http2.pseudoHeaderOrder).toEqual(order);
+        expect(FirefoxProfiles.firefox135.http2.pseudoHeaderOrder).toEqual(order);
     });
 
     it("Firefox 128+ does NOT inject GREASE in HTTP/2", () => {

@@ -6,8 +6,9 @@
  * Cipher order, extension order, signature algorithms, and named groups are
  * byte-accurate against the firefox-133 ClientHello capture
  * (tests/fixtures/firefox-133) and the patch's signatures[]/named_groups[]
- * tables. HTTP/2 settings track the patch's 12MB window and the default stream
- * weight/dependency/stream-id constants.
+ * tables. HTTP/2 data (SETTINGS values + order, pseudo-header order, h2-only
+ * headers) is aligned to the firefox-133 oracle capture in browsercore-testing
+ * — see the firefoxHttp2Impersonation / firefoxHttp2Settings comments.
  *
  * Note on cipher names: codes.js maps names to wire codes with a
  * browser-specific remapping (AES_256->0x1302, ChaCha20->0x1303) so that this
@@ -67,8 +68,17 @@ const firefoxTlsCiphers = [
     "TLS_RSA_WITH_AES_256_CBC_SHA",
 ] as const;
 
+/**
+ * Firefox HTTP/2 tuning shared across versions.
+ *
+ * `initialWindowSize` follows the real Firefox SETTINGS frame (131072 per the
+ * firefox-133 oracle capture in browsercore-testing) — the connection-level
+ * window grows via the preface WINDOW_UPDATE, not via SETTINGS.
+ * firefox-120 predates the impersonation data and pins the legacy 12MB value
+ * from the curl-impersonate patch; see its inline override.
+ */
 const firefoxHttp2Base = {
-    initialWindowSize: 12582912,
+    initialWindowSize: 131072,
     maxFrameSize: 16384,
     headerTableSize: 65536,
     weight: 256,
@@ -85,11 +95,31 @@ const firefoxTlsImpersonation = {
     compressCertificateAlgorithms: [0x02, 0x01],
 } as const;
 
+/**
+ * HTTP/2 impersonation fields shared by firefox-128 and firefox-135 (but not
+ * firefox-120, which predates the impersonation data). Values are aligned to
+ * the firefox-133 oracle capture (browsercore-testing/captures/firefox-133/
+ * oracle_capture.reference.json): SETTINGS `1:65536;2:0;4:131072;5:16384|
+ * 12517377|0|m,p,a,s` and pseudo-header wire order
+ * `:method,:path,:authority,:scheme`.
+ */
 const firefoxHttp2Impersonation = {
-    settingsOrder: [1, 2, 4, 6],
+    settingsOrder: [1, 2, 4, 5],
     grease: false,
     connectionWindowUpdate: 12517377,
-    pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
+    pseudoHeaderOrder: ["method", "path", "authority", "scheme"],
+} as const;
+
+/**
+ * Firefox SETTINGS frame payload per the firefox-133 oracle: four entries,
+ * ending in MAX_FRAME_SIZE (id 5) — Firefox sends MAX_FRAME_SIZE where Chrome
+ * sends MAX_HEADER_LIST_SIZE, and never sends MAX_CONCURRENT_STREAMS.
+ */
+const firefoxHttp2Settings = {
+    headerTableSize: 65536,
+    enablePush: false,
+    initialWindowSize: 131072,
+    maxFrameSize: 16384,
 } as const;
 
 const firefoxHttp1Base = {
@@ -120,6 +150,9 @@ export const firefox120: BrowserProfile = {
     },
     http2: {
         ...firefoxHttp2Base,
+        // Pre-impersonation legacy data (no oracle capture): keep the
+        // curl-impersonate patch's 12MB SETTINGS window.
+        initialWindowSize: 12582912,
         settings: {
             headerTableSize: 65536,
             enablePush: false,
@@ -156,13 +189,11 @@ export const firefox128: BrowserProfile = {
     http2: {
         ...firefoxHttp2Base,
         ...firefoxHttp2Impersonation,
-        settings: {
-            headerTableSize: 65536,
-            enablePush: false,
-            maxConcurrentStreams: 100,
-            initialWindowSize: 12582912,
-            maxFrameSize: 16384,
-        },
+        settings: firefoxHttp2Settings,
+        // h2-only defaults per real Firefox: `te: trailers` has been sent for
+        // as long as Firefox has spoken h2. The `priority` header is NOT set
+        // here — it first shipped in Firefox 133, after this profile.
+        http2DefaultHeaders: { "te": "trailers" },
     },
     http1: {
         ...firefoxHttp1Base,
@@ -192,13 +223,10 @@ export const firefox135: BrowserProfile = {
     http2: {
         ...firefoxHttp2Base,
         ...firefoxHttp2Impersonation,
-        settings: {
-            headerTableSize: 65536,
-            enablePush: false,
-            maxConcurrentStreams: 128,
-            initialWindowSize: 12582912,
-            maxFrameSize: 16384,
-        },
+        settings: firefoxHttp2Settings,
+        // h2-only defaults per the firefox-133 oracle HEADERS frame
+        // (wire order: priority before te).
+        http2DefaultHeaders: { "priority": "u=0, i", "te": "trailers" },
     },
     http1: {
         ...firefoxHttp1Base,

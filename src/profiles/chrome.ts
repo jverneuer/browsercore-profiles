@@ -13,6 +13,12 @@
  *   - chrome-131+: X25519MLKEM768 (0x11ec) replaces Kyber768; the
  *     application_settings extension moves from 17513 to 17613.
  *
+ * HTTP/2 SETTINGS shape, the key_share split (shared vs advertised groups),
+ * and the h2-only `priority` header are additionally verified against the
+ * chrome-131 oracle capture (browsercore-testing/captures/chrome-131/
+ * oracle_capture.reference.json, akamai h2 `1:65536;2:0;4:6291456;6:262144
+ * |15663105|0|m,a,s,p`).
+ *
  * Chrome permutes its extension order at runtime (tls_permute_extensions), so
  * `extensionOrder` stores the canonical pre-permutation seed that
  * curl-impersonate configures. The order was verified via a curl_cffi capture
@@ -76,12 +82,19 @@ const chromeHttp2Base = {
     pseudoHeaderOrder: ["method", "authority", "scheme", "path"],
 } as const;
 
-const chromeHttp2Settings = {
+/**
+ * Chrome's actual SETTINGS frame payload. Real Chrome 131/140 sends exactly
+ * four settings (akamai fingerprint `1:65536;2:0;4:6291456;6:262144` — see the
+ * chrome-131 oracle capture in browsercore-testing). MAX_CONCURRENT_STREAMS (3)
+ * and MAX_FRAME_SIZE (5) are NOT sent: 16384 is the RFC 9113 default, so
+ * advertising it would diverge from the real SETTINGS frame. The top-level
+ * `maxFrameSize` tuning value stays 16384 — Chrome still frames at that size,
+ * it just omits the redundant setting.
+ */
+export const chromeHttp2Settings = {
     headerTableSize: 65536,
     enablePush: false,
-    maxConcurrentStreams: 100,
     initialWindowSize: 6291456,
-    maxFrameSize: 16384,
     maxHeaderListSize: 262144,
 } as const;
 
@@ -198,12 +211,22 @@ export const chrome140: BrowserProfile = {
     tls: {
         ...chromeTlsBase,
         extensionOrder: chromeExtensionOrder(17613),
-        keyShareGroups: ["X25519MLKEM768", "x25519", "secp256r1", "secp384r1"],
+        // Chrome 131+ shares exactly these in key_share (chrome-131 oracle:
+        // GREASE 1-byte "00", X25519MLKEM768 1216B, x25519 32B). P-256/P-384
+        // are advertised but never shared. The GREASE slot is injected at
+        // runtime via the `grease` flag (randomized per RFC 8701).
+        keyShareGroups: ["X25519MLKEM768", "x25519"],
+        // supported_groups advertisement (chrome-131 oracle): GREASE, 4588,
+        // 29, 23, 24 — the shared list plus secp256r1/secp384r1.
+        keyShareAdvertisedGroups: ["X25519MLKEM768", "x25519", "secp256r1", "secp384r1"],
         cipherSuites: chromeCipherSuites,
     },
     http2: {
         ...chromeHttp2Base,
         settings: chromeHttp2Settings,
+        // Chrome 131+ closes navigations with the extensible-priority header
+        // (chrome-131 oracle HEADERS: `priority: u=0, i`). Not an h1 default.
+        http2DefaultHeaders: { "priority": "u=0, i" },
     },
     http1: {
         ...chromeHttp1Base,

@@ -57,7 +57,7 @@ describe("diffProfiles", () => {
                 ...a.http2,
                 settings: {
                     ...a.http2.settings,
-                    maxConcurrentStreams: 1,
+                    maxHeaderListSize: 131072,
                 },
             },
         };
@@ -65,9 +65,9 @@ describe("diffProfiles", () => {
         const diffs = diffProfiles(a, b);
 
         expect(diffs).toContainEqual({
-            path: "http2.settings.maxConcurrentStreams",
-            a: 100,
-            b: 1,
+            path: "http2.settings.maxHeaderListSize",
+            a: 262144,
+            b: 131072,
         });
     });
 

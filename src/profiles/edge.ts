@@ -11,10 +11,18 @@
  */
 
 import type { BrowserProfile, ProfileId } from "../types.js";
-import { chromeExtensionOrder } from "./chrome.js";
+import { chromeExtensionOrder, chromeHttp2Settings } from "./chrome.js";
 
 /** TLS 1.3 GREASE placeholder cipher (0x?a?a) Edge inserts at the top of the list. */
 const GREASE = "TLS_GREASE_RESERVED_0";
+
+/**
+ * Chromium's SETTINGS frame payload, shared verbatim with Chrome. Real
+ * Chromium (Chrome and Edge alike, per the chrome-131 oracle capture) sends
+ * exactly ids 1, 2, 4, 6 — no MAX_CONCURRENT_STREAMS, no MAX_FRAME_SIZE.
+ * See {@link chromeHttp2Settings} for the capture citation.
+ */
+const edgeHttp2Settings = chromeHttp2Settings;
 
 /**
  * Edge shares Chrome's extension order (modern Chromium 120+ is the base for
@@ -108,13 +116,7 @@ export const edge120: BrowserProfile = {
     },
     http2: {
         ...edgeHttp2Base,
-        settings: {
-            headerTableSize: 65536,
-            enablePush: false,
-            maxConcurrentStreams: 100,
-            initialWindowSize: 6291456,
-            maxFrameSize: 16384,
-        },
+        settings: edgeHttp2Settings,
     },
     http1: {
         ...edgeHttp1Base,
@@ -145,13 +147,7 @@ export const edge128: BrowserProfile = {
     },
     http2: {
         ...edgeHttp2Base,
-        settings: {
-            headerTableSize: 65536,
-            enablePush: false,
-            maxConcurrentStreams: 100,
-            initialWindowSize: 6291456,
-            maxFrameSize: 16384,
-        },
+        settings: edgeHttp2Settings,
     },
     http1: {
         ...edgeHttp1Base,

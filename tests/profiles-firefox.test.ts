@@ -137,6 +137,64 @@ describe("Firefox profiles — curl-impersonate ground truth (firefox-133 captur
     });
 });
 
+describe("Firefox profiles — HTTP/2 data (firefox-133 oracle capture)", () => {
+    // Ground truth: browsercore-testing/captures/firefox-133/
+    // oracle_capture.reference.json — akamai fingerprint
+    // `1:65536;2:0;4:131072;5:16384|12517377|0|m,p,a,s`, pseudo-headers
+    // `:method,:path,:authority,:scheme`, request HEADERS ending in
+    // `priority: u=0, i` and `te: trailers`.
+    const impersonated = [FirefoxProfiles.firefox128, FirefoxProfiles.firefox135];
+
+    it("impersonated profiles send SETTINGS ids [1, 2, 4, 5] (MAX_FRAME_SIZE, not MAX_HEADER_LIST_SIZE)", () => {
+        for (const profile of impersonated) {
+            expect(profile.http2.settingsOrder, `${profile.id}`).toEqual([1, 2, 4, 5]);
+            expect(Object.keys(profile.http2.settings), `${profile.id}`).toHaveLength(4);
+        }
+    });
+
+    it("impersonated profiles carry the oracle SETTINGS values", () => {
+        for (const profile of impersonated) {
+            expect(profile.http2.settings, `${profile.id}`).toEqual({
+                headerTableSize: 65536,
+                enablePush: false,
+                initialWindowSize: 131072,
+                maxFrameSize: 16384,
+            });
+        }
+    });
+
+    it("impersonated profiles use Firefox's pseudo-header order", () => {
+        for (const profile of impersonated) {
+            expect(profile.http2.pseudoHeaderOrder, `${profile.id}`).toEqual([
+                "method",
+                "path",
+                "authority",
+                "scheme",
+            ]);
+        }
+    });
+
+    it("firefox-135 sends the oracle h2 default headers (priority since Firefox 133)", () => {
+        expect(FirefoxProfiles.firefox135.http2.http2DefaultHeaders).toEqual({
+            "priority": "u=0, i",
+            "te": "trailers",
+        });
+    });
+
+    it("firefox-128 sends te: trailers but no priority header (predates Firefox 133)", () => {
+        expect(FirefoxProfiles.firefox128.http2.http2DefaultHeaders).toEqual({
+            "te": "trailers",
+        });
+    });
+
+    it("firefox-120 keeps its legacy pre-impersonation SETTINGS (no oracle)", () => {
+        expect(FirefoxProfiles.firefox120.http2.settingsOrder).toBeUndefined();
+        expect(FirefoxProfiles.firefox120.http2.settings.initialWindowSize).toBe(12582912);
+        expect(FirefoxProfiles.firefox120.http2.initialWindowSize).toBe(12582912);
+        expect(FirefoxProfiles.firefox120.http2.http2DefaultHeaders).toBeUndefined();
+    });
+});
+
 describe("Firefox profile data — codes.js allow-list coverage", () => {
     it("every cipher name a Firefox profile uses resolves in CIPHER_SUITE_CODES", () => {
         for (const profile of firefoxProfiles) {

@@ -28,9 +28,12 @@ describe("buildExpectedClientHello", () => {
         expect(expected.extensionTypes).toContain(16); // ALPN
         expect(expected.extensionTypes).toContain(10); // supported_groups
 
-        // Named groups.
-        expect(expected.keyShareGroups).toContain(0x001d); // x25519
-        expect(expected.keyShareGroups).toContain(0x0017); // secp256r1
+        // Named groups: chrome-140 shares only MLKEM768 + x25519 (secp256r1 is
+        // advertised, not shared).
+        expect(expected.keyShareGroups).toEqual([0x11ec, 0x001d]);
+        expect(expected.keyShareGroups).not.toContain(0x0017); // secp256r1
+        // Advertised (supported_groups) list: the shared list plus P-256/P-384.
+        expect(expected.keyShareAdvertisedGroups).toEqual([0x11ec, 0x001d, 0x0017, 0x0018]);
 
         // Signature schemes (first entry: ecdsa_secp256r1_sha256).
         expect(expected.signatureAlgorithms[0]).toBe(0x0403);
@@ -233,6 +236,15 @@ describe("buildExpectedClientHello — projection error paths", () => {
         expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(/named group/);
     });
 
+    it("throws ValidationError on an unknown advertised named group", () => {
+        const bad = {
+            ...base,
+            tls: { ...base.tls, keyShareAdvertisedGroups: ["no-group"] },
+        } as typeof base;
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(ValidationError);
+        expect(() => buildExpectedClientHello(bad, "example.com")).toThrow(/named group/);
+    });
+
     it("throws ValidationError on an unknown signature scheme", () => {
         const bad = {
             ...base,
@@ -308,7 +320,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
         const profile = getProfile("chrome-140" as ProfileId);
         const expected = buildExpectedClientHello(profile, "example.com");
         const groups = [...expected.keyShareGroups];
-        groups[0] = 0x0018; // secp384r1 instead of x25519
+        groups[0] = 0x0018; // secp384r1 instead of X25519MLKEM768
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
             extensionTypes: expected.extensionTypes,
@@ -322,6 +334,89 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
 
         expect(result.ok).toBe(false);
         expect(result.diffs.some((d) => d.path === "tls.keyShareGroups[0]")).toBe(true);
+    });
+
+    it("skips GREASE-pattern entries in a greasing profile's group capture lists", () => {
+        // Real captures carry randomized GREASE group ids (e.g. 0x2a2a from the
+        // chrome-131 oracle) that the profile cannot predict — the `grease`
+        // flag drives those slots, so they must not count as mismatches.
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: [0x2a2a, ...expected.keyShareGroups],
+            keyShareAdvertisedGroups: [0x2a2a, ...(expected.keyShareAdvertisedGroups ?? [])],
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
+    });
+
+    it("reports a diff when a non-greasing profile's capture carries a GREASE-pattern group", () => {
+        // Firefox does not grease; a GREASE-pattern id in its capture is a real
+        // divergence, not a slot to skip.
+        const profile = getProfile("firefox-135" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: [0x1a1a, ...expected.keyShareGroups],
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: false,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.keyShareGroups[6]")).toBe(true);
+    });
+
+    it("reports diffs when keyShareAdvertisedGroups mismatch", () => {
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const advertised = [...(expected.keyShareAdvertisedGroups ?? [])];
+        advertised[2] = 0x0019; // secp521r1 instead of secp256r1
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            keyShareAdvertisedGroups: advertised,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs.some((d) => d.path === "tls.keyShareAdvertisedGroups[2]")).toBe(true);
+    });
+
+    it("does not diff keyShareAdvertisedGroups when the capture omits them", () => {
+        // Older captures predate the advertised/shared split; absence from the
+        // capture is not a mismatch (same rule as ecPointFormats).
+        const profile = getProfile("chrome-140" as ProfileId);
+        const expected = buildExpectedClientHello(profile, "example.com");
+        const capture: TlsCapture = {
+            cipherSuites: expected.cipherSuites,
+            extensionTypes: expected.extensionTypes,
+            supportedVersions: expected.supportedVersions,
+            keyShareGroups: expected.keyShareGroups,
+            signatureAlgorithms: expected.signatureAlgorithms,
+            grease: true,
+        };
+
+        const result = validateProfileAgainstCapture(profile, capture);
+
+        expect(result.ok).toBe(true);
+        expect(result.diffs).toEqual([]);
     });
 
     it("reports diffs when signatureAlgorithms mismatch", () => {

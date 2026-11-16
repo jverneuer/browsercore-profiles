@@ -149,6 +149,11 @@ This package adopts `@browsercore/dev`, the shared config package for the
 
 `@browsercore/dev` is declared as a devDependency via `"@browsercore/dev": "file:../dev"`.
 
+
+## Contributing
+
+Contributions are welcome — bug reports, reproductions, docs and code alike. Start with [CONTRIBUTING.md](CONTRIBUTING.md); the full guide lives in the [browsersmith repo](https://github.com/jverneuer/browsersmith/blob/main/CONTRIBUTING.md). First timer? Check the [`good first issue`](https://github.com/jverneuer/browsercore-profiles/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label. Security issues: [SECURITY.md](SECURITY.md), never a public issue.
+
 ## License
 
 MIT

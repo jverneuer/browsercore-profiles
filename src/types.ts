@@ -126,6 +126,22 @@ export interface Http2Settings {
     readonly initialWindowSize: number;
     readonly maxFrameSize: number;
     readonly maxHeaderListSize: number;
+    /**
+     * SETTINGS_ENABLE_CONNECT_PROTOCOL (id 8), RFC 8441 §3 — value 1 advertises
+     * the Extended CONNECT protocol (WebSocket-over-h2). Optional: only
+     * browsers that send id 8 carry it (Safari 18.0–18.3 per the
+     * curl-impersonate Safari 18.0 macOS capture). Value 0 = absent from the
+     * wire (consumers must not serialize a 0).
+     */
+    readonly enableConnectProtocol?: number;
+    /**
+     * SETTINGS_NO_RFC7540_PRIORITIES (id 9), RFC 9113 §5.3 — value 1 tells the
+     * peer the client does not use RFC 7540 priority frames/fields. Optional:
+     * only browsers that send id 9 carry it (Safari 18+ per the curl-impersonate
+     * Safari 18.0 macOS capture; Firefox 132+ similarly). Value 0 = absent from
+     * the wire (consumers must not serialize a 0).
+     */
+    readonly noRfc7540Priorities?: number;
 }
 
 /** HTTP/2 stream priority descriptor. */

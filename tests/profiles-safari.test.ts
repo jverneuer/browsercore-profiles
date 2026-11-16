@@ -149,12 +149,21 @@ describe("Safari profiles — curl-impersonate ground truth", () => {
         expect(ext).not.toContain(41); // pre_shared_key
     });
 
-    it("safari17 and safari18 differ only in version and User-Agent", () => {
+    it("safari17 and safari18 share TLS data but differ in version, User-Agent, and h2", () => {
         const a = SafariProfiles.safari17;
         const b = SafariProfiles.safari18;
         expect(a.version).toBe("17.6");
         expect(b.version).toBe("18.1");
         expect(a.http1.defaultHeaders["user-agent"]).toContain("Version/17.6");
         expect(b.http1.defaultHeaders["user-agent"]).toContain("Version/18.1");
+        // Same TLS fingerprint (see the tests above), different HTTP/2
+        // fingerprint: Safari 18 reshuffled its SETTINGS frame (adds ids 8, 9;
+        // 2 MiB initial window), pseudo-header order (m,s,a,p), connection
+        // WINDOW_UPDATE (10420225), and sends the `priority` header — per the
+        // curl-impersonate Safari 17.0/18.0 macOS captures (#55).
+        expect(a.http2.settingsOrder).not.toEqual(b.http2.settingsOrder);
+        expect(a.http2.settings).not.toEqual(b.http2.settings);
+        expect(a.http2.pseudoHeaderOrder).not.toEqual(b.http2.pseudoHeaderOrder);
+        expect(a.http2.connectionWindowUpdate).not.toBe(b.http2.connectionWindowUpdate);
     });
 });

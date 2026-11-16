@@ -41,10 +41,10 @@
     "devDependencies": {
         "@types/node": "^26.1.2",
         "@vitest/coverage-v8": "^4.1.10",
+        "oxlint": "^1.76.0",
+        "oxlint-tsgolint": "^7.0.2007",
         "typescript": "^7.0.0",
-        "vitest": "^4.1.10",
-        "oxlint": "1.90.0",
-        "oxlint-tsgolint": "7.0.2005"
+        "vitest": "^4.1.10"
     },
     "engines": {
         "node": ">=26.0.0"

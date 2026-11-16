@@ -196,26 +196,27 @@ describe("shipped profiles — HTTP/2 invariants", () => {
     it("settings fields agree with their top-level twins", () => {
         // http2 exposes both `settings.{initialWindowSize,maxFrameSize,headerTableSize}`
         // and top-level aliases; they must match or downstream tuning logic splits
-        // on which value it reads. The maxFrameSize twin only applies when the
-        // browser actually sends SETTINGS_MAX_FRAME_SIZE — real Chrome omits it
-        // (16384 is the RFC 9113 default), so the setting is absent while the
-        // top-level tuning value stays.
+        // on which value it reads. The maxFrameSize/headerTableSize twins only
+        // apply when the browser actually sends those settings — real Chrome
+        // omits MAX_FRAME_SIZE (16384 is the RFC 9113 default) and real Safari
+        // omits both (its captured SETTINGS frames carry only ids 2/3/4 + 8/9),
+        // so those settings are absent while the top-level tuning values stay.
         for (const p of allProfiles) {
             expect(p.http2.settings.initialWindowSize, `${p.id}: initialWindowSize`).toBe(p.http2.initialWindowSize);
             if (p.http2.settings.maxFrameSize !== undefined) {
                 expect(p.http2.settings.maxFrameSize, `${p.id}: maxFrameSize`).toBe(p.http2.maxFrameSize);
             }
-            expect(p.http2.settings.headerTableSize, `${p.id}: headerTableSize`).toBe(p.http2.headerTableSize);
+            if (p.http2.settings.headerTableSize !== undefined) {
+                expect(p.http2.settings.headerTableSize, `${p.id}: headerTableSize`).toBe(p.http2.headerTableSize);
+            }
         }
     });
 
     it("settings entries are exactly the ids listed in settingsOrder (when ordered)", () => {
         // A settings entry whose wire id is missing from settingsOrder would
         // never be serialized — or worse, silently reordered — so the two must
-        // stay in lockstep. Scoped to the oracle-aligned families: Safari's
-        // SETTINGS still carry legacy curl-impersonate values (ids 3 and 5)
-        // against a [1, 2, 4, 6] order and needs its own WebKit capture before
-        // its data can change.
+        // stay in lockstep. All four families are oracle-aligned as of 0.2.5
+        // (Safari per the curl-impersonate Safari 17.0/18.0 macOS captures).
         const settingWireIds: Readonly<Record<string, number>> = {
             headerTableSize: 1,
             enablePush: 2,
@@ -223,10 +224,13 @@ describe("shipped profiles — HTTP/2 invariants", () => {
             initialWindowSize: 4,
             maxFrameSize: 5,
             maxHeaderListSize: 6,
+            enableConnectProtocol: 8,
+            noRfc7540Priorities: 9,
         };
         const oracleAligned = [
             ...Object.values(ChromeProfiles),
             ...Object.values(FirefoxProfiles),
+            ...Object.values(SafariProfiles),
             ...Object.values(EdgeProfiles),
         ];
         for (const p of oracleAligned) {
@@ -420,18 +424,67 @@ describe("shipped profiles — HTTP/2 impersonation fields", () => {
         expect(FirefoxProfiles.firefox135.http2.connectionWindowUpdate).toBe(12517377);
     });
 
-    it("Safari does NOT inject GREASE and does not send a connection WINDOW_UPDATE", () => {
+    it("Safari does NOT inject GREASE and sends the captured connection WINDOW_UPDATE", () => {
+        // curl-impersonate Safari 17.0 macOS capture: WINDOW_UPDATE stream 0
+        // increment 10485760 after the SETTINGS frame; Safari 18.0 macOS
+        // capture: 10420225 (10420225 + the 65535 RFC default = 10 MiB total).
+        // The pre-0.2.5 0 value made the engine emit a WINDOW_UPDATE with a
+        // 0 increment — a PROTOCOL_ERROR (RFC 9113 §6.9) and the direct cause
+        // of the nginx GOAWAY in #55.
         for (const p of Object.values(SafariProfiles)) {
             expect(p.http2.grease, `${p.id}`).toBe(false);
-            expect(p.http2.connectionWindowUpdate, `${p.id}`).toBe(0);
         }
+        expect(SafariProfiles.safari17.http2.connectionWindowUpdate).toBe(10485760);
+        expect(SafariProfiles.safari18.http2.connectionWindowUpdate).toBe(10420225);
     });
 
-    it("Safari uses the standard pseudo-header order", () => {
-        const order = ["method", "authority", "scheme", "path"];
-        for (const p of Object.values(SafariProfiles)) {
-            expect(p.http2.pseudoHeaderOrder, `${p.id}`).toEqual(order);
-        }
+    it("Safari uses WebKit's pseudo-header order (distinct from Chrome)", () => {
+        // Safari 17.0 macOS capture: :method,:scheme,:path,:authority.
+        // Safari 18.0 macOS capture: :method,:scheme,:authority,:path (18-era
+        // reshuffle) — confirmed by the iOS 18.3 browserleaks capture
+        // (lexiforest/curl_cffi#530) and tls-client's Safari 27.2 desktop
+        // capture. NOT Chrome's m,a,s,p.
+        expect(SafariProfiles.safari17.http2.pseudoHeaderOrder).toEqual([
+            "method", "scheme", "path", "authority",
+        ]);
+        expect(SafariProfiles.safari18.http2.pseudoHeaderOrder).toEqual([
+            "method", "scheme", "authority", "path",
+        ]);
+    });
+
+    it("safari-17 SETTINGS match the Safari 17.0 macOS capture (2:0;4:4194304;3:100)", () => {
+        // Ground truth: lexiforest/curl-impersonate tests/signatures/
+        // safari_17.0_macOS.yaml — SETTINGS frame ids [2, 4, 3] in that order,
+        // akamai `2:0;4:4194304;3:100|10485760|0|m,s,p,a`. Real Safari 17.x
+        // sends no HEADER_TABLE_SIZE (1), no MAX_FRAME_SIZE (5), no
+        // MAX_HEADER_LIST_SIZE (6), and no h2 GREASE.
+        const h2 = SafariProfiles.safari17.http2;
+        expect(h2.settingsOrder).toEqual([2, 4, 3]);
+        expect(h2.settings).toEqual({
+            enablePush: false,
+            maxConcurrentStreams: 100,
+            initialWindowSize: 4194304,
+        });
+        expect(h2.http2DefaultHeaders).toBeUndefined();
+    });
+
+    it("safari-18 SETTINGS match the Safari 18.0 macOS capture (2:0;3:100;4:2097152;8:1;9:1)", () => {
+        // Ground truth: lexiforest/curl-impersonate tests/signatures/
+        // safari_18.0_macOS.yaml — SETTINGS frame ids [2, 3, 4, 8, 9] in that
+        // order, akamai `2:0;3:100;4:2097152;8:1;9:1|10420225|0|m,s,a,p` (same
+        // akamai hash as the iOS 18.3 browserleaks capture in
+        // lexiforest/curl_cffi#530). Safari 18 navigations add the
+        // extensible-priority header on h2 (18.0/18.4 captures).
+        const h2 = SafariProfiles.safari18.http2;
+        expect(h2.settingsOrder).toEqual([2, 3, 4, 8, 9]);
+        expect(h2.settings).toEqual({
+            enablePush: false,
+            maxConcurrentStreams: 100,
+            initialWindowSize: 2097152,
+            enableConnectProtocol: 1,
+            noRfc7540Priorities: 1,
+        });
+        expect(h2.http2DefaultHeaders).toEqual({ "priority": "u=0, i" });
     });
 
     it("firefox-120 does not carry HTTP/2 impersonation fields (predates the data)", () => {

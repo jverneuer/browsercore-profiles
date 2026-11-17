@@ -6,15 +6,59 @@
  * these definitions and translate them into bytes / header order / settings frames.
  */
 
+// ---------------------------------------------------------------------------
+// Canonical ProfileId — re-exported from @browsercore/contracts.
+//
+// contracts 0.2.6 (src/models.ts) is the canonical home of the profile-id
+// vocabulary (config-type-home unification, replaceability audit 2026-11-16,
+// item #3 groundwork): ProfileId = RegisteredProfileId |
+// (string & Record<never, never>) — the closed set of registry-shipped ids
+// widened so runtime-registered custom ids (registerProfile) stay assignable
+// while known ids keep literal autocomplete and typo-flagging.
+//
+// contracts exports ProfileId from its package root but deliberately NOT
+// RegisteredProfileId alone ("deliberately NOT exported alone", models.ts),
+// so the closed set is declared below — identical to contracts' union,
+// which is itself derived from this package's registry (the registry is the
+// source; contracts mirrors it for its own BrowserProfile.id). When a future
+// contracts release exports RegisteredProfileId at its root, delete the
+// local declaration and re-export it beside ProfileId (one-line change;
+// tests/canonical-id.test.ts already pins set equality with the registry).
+//
+// The branded local definition (`string & { __brand: "ProfileId" }`) that
+// used to live here is removed: consumers (fetch, tls, browsersmith) pass
+// string literals, so the brand was never load-bearing for them, and the
+// registry validates ids at RUNTIME regardless of the static type —
+// UnknownProfileError is the typo guard, not the brand. Same name, wider
+// (contracts-compatible) shape: public API unchanged for every caller that
+// compiled against the brand.
+// ---------------------------------------------------------------------------
+
+import type { ProfileId } from "@browsercore/contracts";
+
+export type { ProfileId };
+
 /**
- * Branded browser-profile identifier.
+ * The closed set of registry-shipped profile ids — exactly the ids
+ * src/registry.ts indexes at module evaluation.
  *
- * Format: `"${name}-${version}"`, e.g. `"chrome-140"`, `"firefox-128"`.
- * Branding prevents passing an arbitrary string where a validated id is expected.
- *
- * @see createId for building a branded id from a name + version.
+ * Literal autocomplete + typo-flagging; the canonical {@link ProfileId}
+ * (contracts) widens it with the registerProfile extension point. Keep in
+ * lockstep with contracts' RegisteredProfileId (src/models.ts) — the union
+ * below is a verbatim mirror, and tests/canonical-id.test.ts fails if it
+ * drifts from the registry data.
  */
-export type ProfileId = string & { __brand: "ProfileId" };
+export type RegisteredProfileId =
+    | "chrome-120"
+    | "chrome-128"
+    | "chrome-140"
+    | "edge-120"
+    | "edge-128"
+    | "firefox-120"
+    | "firefox-128"
+    | "firefox-135"
+    | "safari-17"
+    | "safari-18";
 
 /** Known browser families. Discriminated-union literal set. */
 export type ProfileName =

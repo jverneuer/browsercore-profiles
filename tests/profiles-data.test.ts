@@ -8,7 +8,7 @@ import {
     listProfiles,
     registerProfile,
 } from "../src/index.js";
-import type { BrowserProfile, ProfileId } from "../src/types.js";
+import type { BrowserProfile } from "../src/types.js";
 import {
     CIPHER_GREASE_PLACEHOLDER,
     CIPHER_SUITE_CODES,
@@ -498,7 +498,7 @@ describe("shipped profiles — HTTP/2 impersonation fields", () => {
 describe("registry — overwrite and ordering", () => {
     it("registerProfile overwrites a built-in id with a new reference", () => {
         // The registry contract: "Overwrites any existing profile with the same id."
-        const original = getProfile("chrome-140" as ProfileId);
+        const original = getProfile("chrome-140");
         const replacement: BrowserProfile = {
             ...original,
             version: "140.0.0.0-fake",
@@ -506,21 +506,21 @@ describe("registry — overwrite and ordering", () => {
 
         registerProfile(replacement);
         try {
-            expect(getProfile("chrome-140" as ProfileId)).toBe(replacement);
-            expect(getProfile("chrome-140" as ProfileId)).not.toBe(original);
-            expect(getProfile("chrome-140" as ProfileId).version).toBe("140.0.0.0-fake");
+            expect(getProfile("chrome-140")).toBe(replacement);
+            expect(getProfile("chrome-140")).not.toBe(original);
+            expect(getProfile("chrome-140").version).toBe("140.0.0.0-fake");
         } finally {
             // Restore the built-in so other test files / tests see the original.
             registerProfile(original);
         }
-        expect(getProfile("chrome-140" as ProfileId)).toBe(original);
+        expect(getProfile("chrome-140")).toBe(original);
     });
 
     it("listProfiles returns a value that no longer mutates the registry when pushed to", () => {
         // Returns a fresh Array each call; mutating it must not affect later lookups.
         const before = listProfiles();
         const len = before.length;
-        before.push("injected" as ProfileId);
+        before.push("injected");
         const after = listProfiles();
         expect(after.length).toBe(len);
         expect(after).not.toContain("injected");
@@ -528,10 +528,10 @@ describe("registry — overwrite and ordering", () => {
 
     it("built-ins are listed in family insertion order (chrome, firefox, safari, edge)", () => {
         const ids = listProfiles();
-        const chromeIdx = ids.indexOf("chrome-120" as ProfileId);
-        const firefoxIdx = ids.indexOf("firefox-120" as ProfileId);
-        const safariIdx = ids.indexOf("safari-17" as ProfileId);
-        const edgeIdx = ids.indexOf("edge-120" as ProfileId);
+        const chromeIdx = ids.indexOf("chrome-120");
+        const firefoxIdx = ids.indexOf("firefox-120");
+        const safariIdx = ids.indexOf("safari-17");
+        const edgeIdx = ids.indexOf("edge-120");
 
         expect(chromeIdx).toBeGreaterThanOrEqual(0);
         expect(chromeIdx).toBeLessThan(firefoxIdx);

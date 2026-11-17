@@ -71,6 +71,7 @@ export type {
     Http2Priority,
     ProfileId,
     ProfileName,
+    RegisteredProfileId,
     TlsProfile,
 } from "./types.js";
 

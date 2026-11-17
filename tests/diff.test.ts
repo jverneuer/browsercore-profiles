@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getProfile } from "../src/index.js";
-import type { BrowserProfile, ProfileId } from "../src/types.js";
+import type { BrowserProfile } from "../src/types.js";
 import { diffProfiles } from "../src/diff.js";
 
 /**
@@ -13,14 +13,14 @@ function clone(profile: BrowserProfile): BrowserProfile {
 
 describe("diffProfiles", () => {
     it("returns an empty diff for two structurally-identical profiles", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const b = clone(a);
 
         expect(diffProfiles(a, b)).toEqual([]);
     });
 
     it("reports exactly one diff when a single tls field (grease) differs", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const b: BrowserProfile = {
             ...a,
             tls: { ...a.tls, grease: false },
@@ -35,7 +35,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports a diff when cipher suites are reordered", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const reordered = [...a.tls.cipherSuites].reverse();
         const b: BrowserProfile = {
             ...a,
@@ -50,7 +50,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports a diff at the nested path when http2 settings differ", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const b: BrowserProfile = {
             ...a,
             http2: {
@@ -72,7 +72,7 @@ describe("diffProfiles", () => {
     });
 
     it("ignores array order when compareArrayOrder is false", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const reordered = [...a.tls.cipherSuites].reverse();
         const b: BrowserProfile = {
             ...a,
@@ -85,7 +85,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports a top-level name/version diff", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const b: BrowserProfile = { ...a, name: "firefox", version: "135.0" };
 
         const diffs = diffProfiles(a, b);
@@ -95,7 +95,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports a single whole-array diff when multisets differ in unordered mode", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // Same membership except one element differs — order-insensitive comparison
         // must still surface the difference as one diff at the array path.
         const b: BrowserProfile = {
@@ -137,7 +137,7 @@ describe("diffProfiles", () => {
     });
 
     it("compares arrays of objects as multisets regardless of property order", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // The structural diff is built to handle nested objects/arrays (DiffNode).
         // Exercise that path: two arrays with the same object members in different
         // order, and object keys in different order, must compare equal unordered.
@@ -154,7 +154,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports per-index diffs when ordered arrays differ in length", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         const shorter: BrowserProfile = {
             ...a,
             tls: { ...a.tls, cipherSuites: a.tls.cipherSuites.slice(0, 3) },
@@ -174,7 +174,7 @@ describe("diffProfiles", () => {
     });
 
     it("emits a diff when one value is an array and the other is not", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // Same path, but `a` holds an array while `b` holds a scalar — incomparable,
         // so the whole subtree is reported as a single diff.
         const b = {
@@ -188,7 +188,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports keys present in only one object", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // `a` has a key `b` lacks, and `b` has a key `a` lacks, at the nested level.
         const left = {
             ...a,
@@ -206,7 +206,7 @@ describe("diffProfiles", () => {
     });
 
     it("compares nested arrays as multisets in unordered mode", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // Array-of-arrays: the inner arrays must be recursively stabilized and
         // compared as multisets, so reordered members compare equal.
         const left = {
@@ -222,7 +222,7 @@ describe("diffProfiles", () => {
     });
 
     it("reports a single whole-array diff in unordered mode when the arrays differ in length", () => {
-        const a = getProfile("chrome-140" as ProfileId);
+        const a = getProfile("chrome-140");
         // Unordered comparison first checks length equality; arrays of different
         // lengths can never be equal as multisets, so one diff at the array path
         // is emitted (and the per-element loop is skipped).

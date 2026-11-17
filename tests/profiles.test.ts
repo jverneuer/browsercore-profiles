@@ -6,11 +6,11 @@ import {
     ProfileError,
     UnknownProfileError,
 } from "../src/index.js";
-import type { BrowserProfile, ProfileId } from "../src/types.js";
+import type { BrowserProfile } from "../src/types.js";
 
 describe("profiles registry", () => {
     it("returns a known Chrome profile by id", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
 
         expect(profile.id).toBe("chrome-140");
         expect(profile.name).toBe("chrome");
@@ -20,33 +20,33 @@ describe("profiles registry", () => {
     });
 
     it("returns a known Firefox profile by id", () => {
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
 
         expect(profile.name).toBe("firefox");
         expect(profile.tls.grease).toBe(false);
     });
 
     it("returns a known Safari profile by id", () => {
-        const profile = getProfile("safari-18" as ProfileId);
+        const profile = getProfile("safari-18");
 
         expect(profile.name).toBe("safari");
         expect(profile.http1.defaultHeaders["user-agent"]).toContain("Version/18.1");
     });
 
     it("returns a known Edge profile by id", () => {
-        const profile = getProfile("edge-128" as ProfileId);
+        const profile = getProfile("edge-128");
 
         expect(profile.name).toBe("edge");
         expect(profile.http1.defaultHeaders["user-agent"]).toContain("Edg/128");
     });
 
     it("throws UnknownProfileError for an unknown id", () => {
-        expect(() => getProfile("opera-1" as ProfileId)).toThrow(UnknownProfileError);
+        expect(() => getProfile("opera-1")).toThrow(UnknownProfileError);
     });
 
     it("UnknownProfileError exposes the requested id and kind", () => {
         try {
-            getProfile("opera-1" as ProfileId);
+            getProfile("opera-1");
             expect.unreachable("expected getProfile to throw");
         } catch (e) {
             expect(e).toBeInstanceOf(UnknownProfileError);
@@ -77,7 +77,7 @@ describe("profiles registry", () => {
 
     it("registerProfile adds a custom profile", () => {
         const custom: BrowserProfile = {
-            id: "custom-1" as ProfileId,
+            id: "custom-1",
             name: "chrome",
             version: "999.0",
             tls: {
@@ -105,7 +105,7 @@ describe("profiles registry", () => {
 
         registerProfile(custom);
 
-        expect(getProfile("custom-1" as ProfileId)).toBe(custom);
+        expect(getProfile("custom-1")).toBe(custom);
         expect(listProfiles()).toContain("custom-1");
     });
 });

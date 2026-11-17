@@ -17,7 +17,7 @@
  * would emit Chrome's wire order. Verified against the capture.
  */
 
-import type { BrowserProfile, ProfileId } from "../types.js";
+import type { BrowserProfile } from "../types.js";
 
 const firefoxTlsBase = {
     extensionOrder: [
@@ -141,7 +141,7 @@ const firefoxHttp1Base = {
 } as const;
 
 export const firefox120: BrowserProfile = {
-    id: "firefox-120" as ProfileId,
+    id: "firefox-120",
     name: "firefox",
     version: "120.0",
     tls: {
@@ -178,7 +178,7 @@ export const firefox120: BrowserProfile = {
 };
 
 export const firefox128: BrowserProfile = {
-    id: "firefox-128" as ProfileId,
+    id: "firefox-128",
     name: "firefox",
     version: "128.0",
     tls: {
@@ -212,7 +212,7 @@ export const firefox128: BrowserProfile = {
 };
 
 export const firefox135: BrowserProfile = {
-    id: "firefox-135" as ProfileId,
+    id: "firefox-135",
     name: "firefox",
     version: "135.0",
     tls: {

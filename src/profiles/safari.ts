@@ -39,7 +39,7 @@
  * (10420225 + the 65535 RFC default = 10485760 total = 10 MiB).
  */
 
-import type { BrowserProfile, ProfileId } from "../types.js";
+import type { BrowserProfile } from "../types.js";
 
 /** TLS 1.3 GREASE placeholder cipher (0x?a?a) Safari inserts at the top of the list. */
 const GREASE = "TLS_GREASE_RESERVED_0";
@@ -190,7 +190,7 @@ const SAFARI_CIPHERS: readonly string[] = [
 ];
 
 export const safari17: BrowserProfile = {
-    id: "safari-17" as ProfileId,
+    id: "safari-17",
     name: "safari",
     version: "17.6",
     tls: {
@@ -215,7 +215,7 @@ export const safari17: BrowserProfile = {
 };
 
 export const safari18: BrowserProfile = {
-    id: "safari-18" as ProfileId,
+    id: "safari-18",
     name: "safari",
     version: "18.1",
     tls: {

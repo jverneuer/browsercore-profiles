@@ -9,12 +9,14 @@ describe("assertNever", () => {
 
     it("includes the JSON-serialized value in the message", () => {
         // Complex values surface as JSON so the exhaustiveness failure is debuggable.
+        let thrown: unknown;
         try {
             assertNever({ weird: true } as never);
-            expect.unreachable("expected throw");
         } catch (e) {
-            expect((e as Error).message).toContain('"weird":true');
+            thrown = e;
         }
+        expect(thrown).toBeInstanceOf(Error);
+        expect((thrown as Error).message).toContain('"weird":true');
     });
 });
 

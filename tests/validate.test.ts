@@ -93,9 +93,13 @@ describe("validateProfileAgainstCapture", () => {
         const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
+        const firstCipher = expected.cipherSuites[0];
+        if (firstCipher === undefined) {
+            throw new Error("chrome-140 must advertise at least one cipher suite");
+        }
         const capture: TlsCapture = {
             // First real cipher suite flipped to a wrong value.
-            cipherSuites: [expected.cipherSuites[0], 0xdead, ...expected.cipherSuites.slice(2)],
+            cipherSuites: [firstCipher, 0xdead, ...expected.cipherSuites.slice(2)],
             extensionTypes: expected.extensionTypes,
             supportedVersions: expected.supportedVersions,
             keyShareGroups: expected.keyShareGroups,
@@ -299,10 +303,14 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("reports diffs when supportedVersions mismatch", () => {
         const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
+        const [newest, older] = expected.supportedVersions;
+        if (newest === undefined || older === undefined) {
+            throw new Error("chrome-140 must advertise exactly the two expected versions");
+        }
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
             extensionTypes: expected.extensionTypes,
-            supportedVersions: [expected.supportedVersions[1], expected.supportedVersions[0]],
+            supportedVersions: [older, newest],
             keyShareGroups: expected.keyShareGroups,
             signatureAlgorithms: expected.signatureAlgorithms,
             grease: true,
@@ -572,6 +580,8 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
     it("reports ok when ecPointFormats and compressCertificateAlgorithms match", () => {
         const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
+        // Conditional spreads keep absent optionals genuinely absent under
+        // exactOptionalPropertyTypes (an explicit `undefined` is rejected).
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
             extensionTypes: expected.extensionTypes,
@@ -579,8 +589,12 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
             keyShareGroups: expected.keyShareGroups,
             signatureAlgorithms: expected.signatureAlgorithms,
             grease: true,
-            ecPointFormats: expected.ecPointFormats,
-            compressCertificateAlgorithms: expected.compressCertificateAlgorithms,
+            ...(expected.ecPointFormats === undefined
+                ? {}
+                : { ecPointFormats: expected.ecPointFormats }),
+            ...(expected.compressCertificateAlgorithms === undefined
+                ? {}
+                : { compressCertificateAlgorithms: expected.compressCertificateAlgorithms }),
         };
 
         const result = validateProfileAgainstCapture(profile, capture);
@@ -600,7 +614,9 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
             signatureAlgorithms: expected.signatureAlgorithms,
             grease: true,
             ecPointFormats: [0x01], // ANSI X9.62 instead of uncompressed (0x00)
-            compressCertificateAlgorithms: expected.compressCertificateAlgorithms,
+            ...(expected.compressCertificateAlgorithms === undefined
+                ? {}
+                : { compressCertificateAlgorithms: expected.compressCertificateAlgorithms }),
         };
 
         const result = validateProfileAgainstCapture(profile, capture);

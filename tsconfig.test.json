@@ -8,11 +8,12 @@
     // override the `include` below would match nothing and the gate would
     // silently typecheck zero test files.
     //
-    // The six legacy test files excluded below predate test-typechecking and
-    // are not yet clean under the strict family flags (TS4111 index-signature
-    // access, TS2375 exactOptionalPropertyTypes captures, TS18048/TS2532
-    // possibly-undefined). Hardening them is tracked follow-up; every other
-    // test file — including the canonical-id compile proofs — IS typechecked.
+    // The former six-file legacy exclusion list is GONE: those files have
+    // been hardened under the strict family flags (TS4111 index-signature
+    // bracket access, TS2375 exactOptionalPropertyTypes captures,
+    // TS18048/TS2532 possibly-undefined narrowing). The backlog is closed —
+    // every test file, including the canonical-id compile proofs, IS
+    // typechecked.
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "noEmit": true,
@@ -27,12 +28,6 @@
     ],
     "exclude": [
         "node_modules",
-        "dist",
-        "tests/codes.test.ts",
-        "tests/profiles-chrome.test.ts",
-        "tests/profiles-data.test.ts",
-        "tests/profiles-firefox.test.ts",
-        "tests/utils.test.ts",
-        "tests/validate.test.ts"
+        "dist"
     ]
 }

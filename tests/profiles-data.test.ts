@@ -239,7 +239,13 @@ describe("shipped profiles — HTTP/2 invariants", () => {
                 continue;
             }
             const sentIds = Object.keys(p.http2.settings)
-                .map((name) => settingWireIds[name])
+                .map((name) => {
+                    const wireId = settingWireIds[name];
+                    if (wireId === undefined) {
+                        throw new Error(`${p.id}: settings key ${name} has no wire id`);
+                    }
+                    return wireId;
+                })
                 .sort((a, b) => a - b);
             expect(sentIds, `${p.id}: settings keys vs settingsOrder`).toEqual([...order].sort((a, b) => a - b));
         }
@@ -310,9 +316,15 @@ describe("shipped profiles — HTTP/1 invariants", () => {
         };
         for (const p of allProfiles) {
             const ua = p.http1.defaultHeaders["user-agent"];
-            expect(typeof ua).toBe("string");
+            if (typeof ua !== "string") {
+                throw new Error(`${p.id}: defaultHeaders must carry a string user-agent`);
+            }
+            const familyPattern = uaByFamily[p.name];
+            if (familyPattern === undefined) {
+                throw new Error(`no user-agent pattern registered for family ${p.name}`);
+            }
             expect(ua.length).toBeGreaterThan(0);
-            expect(ua).toMatch(uaByFamily[p.name]);
+            expect(ua).toMatch(familyPattern);
         }
     });
 });
@@ -516,14 +528,15 @@ describe("registry — overwrite and ordering", () => {
         expect(getProfile("chrome-140")).toBe(original);
     });
 
-    it("listProfiles returns a value that no longer mutates the registry when pushed to", () => {
-        // Returns a fresh Array each call; mutating it must not affect later lookups.
-        const before = listProfiles();
-        const len = before.length;
-        before.push("injected");
-        const after = listProfiles();
-        expect(after.length).toBe(len);
-        expect(after).not.toContain("injected");
+    it("listProfiles returns a fresh array each call — the registry cannot be mutated through it", () => {
+        // The return type is readonly ProfileId[] (pushing is a compile error
+        // by contract); the teeth here are that no caller-held reference
+        // aliases the registry's storage: every call hands back a fresh array.
+        const first = listProfiles();
+        const second = listProfiles();
+        expect(first).not.toBe(second);
+        expect(first).toEqual(second);
+        expect(listProfiles()).toEqual(first);
     });
 
     it("built-ins are listed in family insertion order (chrome, firefox, safari, edge)", () => {

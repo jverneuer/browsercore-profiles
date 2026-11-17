@@ -34,7 +34,12 @@ interface ParsedClientHello {
 }
 
 function readUint16(data: Uint8Array, offset: number): number {
-    return (data[offset] << 8) | data[offset + 1];
+    const hi = data[offset];
+    const lo = data[offset + 1];
+    if (hi === undefined || lo === undefined) {
+        throw new Error(`client hello truncated at offset ${offset}`);
+    }
+    return (hi << 8) | lo;
 }
 
 function parseClientHello(bytes: Uint8Array): ParsedClientHello {

@@ -23,7 +23,6 @@ import { describe, expect, it } from "vitest";
 import { ChromeProfiles } from "../src/profiles/chrome.js";
 import {
     CIPHER_GREASE_PLACEHOLDER,
-    CIPHER_SUITE_CODES,
     NAMED_GROUP_CODES,
     SIGNATURE_SCHEME_CODES,
 } from "../src/codes.js";
@@ -153,8 +152,8 @@ describe("chrome profiles — signature algorithms", () => {
     });
 
     it("the two previously-missing schemes project to correct IANA codes", () => {
-        expect(SIGNATURE_SCHEME_CODES.rsa_pss_rsae_sha512).toBe(0x0806);
-        expect(SIGNATURE_SCHEME_CODES.rsa_pkcs1_sha512).toBe(0x0601);
+        expect(SIGNATURE_SCHEME_CODES["rsa_pss_rsae_sha512"]).toBe(0x0806);
+        expect(SIGNATURE_SCHEME_CODES["rsa_pkcs1_sha512"]).toBe(0x0601);
         const wire = expectedWire(chrome.chrome120).signatureAlgorithms;
         expect(wire.slice(-2)).toEqual([0x0806, 0x0601]);
     });
@@ -208,8 +207,8 @@ describe("chrome profiles — supported groups", () => {
     });
 
     it("the new hybrid groups project to correct IANA codes", () => {
-        expect(NAMED_GROUP_CODES.X25519Kyber768).toBe(0x6399);
-        expect(NAMED_GROUP_CODES.X25519MLKEM768).toBe(0x11ec);
+        expect(NAMED_GROUP_CODES["X25519Kyber768"]).toBe(0x6399);
+        expect(NAMED_GROUP_CODES["X25519MLKEM768"]).toBe(0x11ec);
         expect(expectedWire(chrome.chrome128).keyShareGroups[0]).toBe(0x6399);
         expect(expectedWire(chrome.chrome140).keyShareGroups[0]).toBe(0x11ec);
     });

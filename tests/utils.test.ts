@@ -23,9 +23,10 @@ describe("createId", () => {
         expect(createId("chrome", "140")).toBe("chrome-140");
     });
 
-    it("produces a value assignable to the branded ProfileId type", () => {
-        // The helper exists specifically to brand a plain string as ProfileId;
-        // it must round-trip through the type system without a cast at call sites.
+    it("produces a value assignable to the canonical ProfileId type", () => {
+        // ProfileId is the canonical widened union re-exported from
+        // @browsercore/contracts: known registry ids autocomplete, custom
+        // ids stay assignable (registerProfile extension point).
         const id: ProfileId = createId("firefox", "135");
         expect(id).toBe("firefox-135");
     });

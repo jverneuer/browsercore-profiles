@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { getProfile, listProfiles } from "../src/index.js";
-import type { ProfileId } from "../src/types.js";
 import {
     buildExpectedClientHello,
     validateProfileAgainstCapture,
@@ -10,7 +9,7 @@ import type { TlsCapture } from "../src/validate.js";
 
 describe("buildExpectedClientHello", () => {
     it("projects chrome-140 cipher suites and extensions to known wire codes", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // GREASE placeholder → canonical first GREASE code 0x0a0a.
@@ -49,7 +48,7 @@ describe("buildExpectedClientHello", () => {
 
 describe("validateProfileAgainstCapture", () => {
     it("reports ok for a matching fake capture", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         const capture: TlsCapture = {
@@ -68,7 +67,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("accepts a different GREASE-pattern value in a GREASE cipher slot", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // Replace the canonical GREASE code with another valid GREASE value.
@@ -91,7 +90,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("reports not ok with diffs for a mismatched capture", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         const capture: TlsCapture = {
@@ -113,7 +112,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("reports a diff when a non-cipher numeric array (extensions) mismatches", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // Flip the first extension type code.
@@ -145,7 +144,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("maps Firefox cipher suites and signature schemes to IANA codes", () => {
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // Firefox leads with TLS_AES_128_GCM_SHA256. Its signature scheme set
@@ -164,7 +163,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("maps Safari cipher suites (SHA-CBC + 3DES tail) to IANA codes", () => {
-        const profile = getProfile("safari-18" as ProfileId);
+        const profile = getProfile("safari-18");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // Per curl-impersonate ground truth, Safari's legacy tail uses SHA-CBC
@@ -180,7 +179,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("throws ValidationError when a profile references an unknown cipher suite", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const bad: typeof profile = {
             ...profile,
             tls: { ...profile.tls, cipherSuites: ["NOT_A_REAL_CIPHER"] },
@@ -190,7 +189,7 @@ describe("validateProfileAgainstCapture", () => {
     });
 
     it("reports a mismatch when a GREASE cipher slot holds a non-GREASE value", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
 
         // Index 0 is a GREASE slot; a non-GREASE value there must be flagged.
@@ -216,7 +215,7 @@ describe("validateProfileAgainstCapture", () => {
 describe("buildExpectedClientHello — projection error paths", () => {
     // The codes tables double as an allow-list: an unknown name in a profile is a
     // bug, and projection surfaces it as a ValidationError naming the field.
-    const base = getProfile("chrome-140" as ProfileId);
+    const base = getProfile("chrome-140");
 
     it("throws ValidationError naming the cipher suite field on an unknown cipher", () => {
         const bad = { ...base, tls: { ...base.tls, cipherSuites: ["NOPE"] } } as typeof base;
@@ -298,7 +297,7 @@ describe("ValidationError", () => {
 
 describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("reports diffs when supportedVersions mismatch", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -317,7 +316,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     });
 
     it("reports diffs when keyShareGroups mismatch", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const groups = [...expected.keyShareGroups];
         groups[0] = 0x0018; // secp384r1 instead of X25519MLKEM768
@@ -340,7 +339,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
         // Real captures carry randomized GREASE group ids (e.g. 0x2a2a from the
         // chrome-131 oracle) that the profile cannot predict — the `grease`
         // flag drives those slots, so they must not count as mismatches.
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -361,7 +360,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("reports a diff when a non-greasing profile's capture carries a GREASE-pattern group", () => {
         // Firefox does not grease; a GREASE-pattern id in its capture is a real
         // divergence, not a slot to skip.
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -379,7 +378,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     });
 
     it("reports diffs when keyShareAdvertisedGroups mismatch", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const advertised = [...(expected.keyShareAdvertisedGroups ?? [])];
         advertised[2] = 0x0019; // secp521r1 instead of secp256r1
@@ -402,7 +401,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("does not diff keyShareAdvertisedGroups when the capture omits them", () => {
         // Older captures predate the advertised/shared split; absence from the
         // capture is not a mismatch (same rule as ecPointFormats).
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -420,7 +419,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     });
 
     it("reports diffs when signatureAlgorithms mismatch", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const sigs = [...expected.signatureAlgorithms];
         sigs[0] = 0x0201; // rsa_pkcs1_sha1 instead of ecdsa_secp256r1_sha256
@@ -440,7 +439,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     });
 
     it("reports a per-index diff when the capture cipher list is shorter than expected", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             // Drop the trailing two suites — those indices must show as diffs.
@@ -460,7 +459,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     });
 
     it("reports diffs when the capture cipher list is longer than expected", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: [...expected.cipherSuites, 0x1304], // extra TLS_AES_128_CCM_SHA256
@@ -482,7 +481,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("accepts a non-GREASE profile (Firefox) against a matching capture", () => {
         // Firefox has grease:false and no GREASE cipher slot — its happy path must
         // not depend on GREASE-aware comparison.
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -502,7 +501,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("accepts the maximum GREASE value 0xfafa in a GREASE cipher slot", () => {
         // The GREASE range is 0x0a0a..0xfafa in steps of 0x1010; the top end must
         // be accepted just like the canonical 0x0a0a.
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const ciphers = [...expected.cipherSuites];
         ciphers[0] = 0xfafa;
@@ -523,7 +522,7 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
     it("rejects 0x0000 at a GREASE cipher slot (not a real GREASE value)", () => {
         // RFC 8701 reserves 0x0a0a..0xfafa in steps of 0x1010; 0x0000 shares the
         // high===low byte shape but is NOT a GREASE value, so it must be flagged.
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const ciphers = [...expected.cipherSuites];
         ciphers[0] = 0x0000; // GREASE slot carrying 0x0000
@@ -546,14 +545,14 @@ describe("validateProfileAgainstCapture — remaining mismatch paths", () => {
 
 describe("buildExpectedClientHello — ecPointFormats and compressCertificateAlgorithms", () => {
     it("projects ecPointFormats and compressCertificateAlgorithms for Chrome", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         expect(expected.ecPointFormats).toEqual([0x00]);
         expect(expected.compressCertificateAlgorithms).toEqual([0x02]);
     });
 
     it("projects Firefox compress_certificate with brotli + zlib order", () => {
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
         const expected = buildExpectedClientHello(profile, "example.com");
         expect(expected.ecPointFormats).toEqual([0x00]);
         // Firefox offers both brotli (0x02) and zlib (0x01) — distinct from Chrome.
@@ -562,7 +561,7 @@ describe("buildExpectedClientHello — ecPointFormats and compressCertificateAlg
 
     it("returns undefined for these fields when the profile doesn't define them", () => {
         // firefox-120 predates the impersonation data and lacks these fields.
-        const profile = getProfile("firefox-120" as ProfileId);
+        const profile = getProfile("firefox-120");
         const expected = buildExpectedClientHello(profile, "example.com");
         expect(expected.ecPointFormats).toBeUndefined();
         expect(expected.compressCertificateAlgorithms).toBeUndefined();
@@ -571,7 +570,7 @@ describe("buildExpectedClientHello — ecPointFormats and compressCertificateAlg
 
 describe("validateProfileAgainstCapture — ecPointFormats and compressCertificateAlgorithms", () => {
     it("reports ok when ecPointFormats and compressCertificateAlgorithms match", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -591,7 +590,7 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
     });
 
     it("reports diffs when ecPointFormats mismatch", () => {
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -611,7 +610,7 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
     });
 
     it("reports diffs when compressCertificateAlgorithms mismatch", () => {
-        const profile = getProfile("firefox-135" as ProfileId);
+        const profile = getProfile("firefox-135");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -620,7 +619,7 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
             keyShareGroups: expected.keyShareGroups,
             signatureAlgorithms: expected.signatureAlgorithms,
             grease: false,
-            ecPointFormats: expected.ecPointFormats,
+            ecPointFormats: [0x00], // firefox-135 projects uncompressed — literal keeps eOTP happy (expected.ecPointFormats is `| undefined`)
             compressCertificateAlgorithms: [0x02], // missing zlib (0x01)
         };
 
@@ -633,7 +632,7 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
     it("does not diff when the capture omits these fields (backward compatible)", () => {
         // Older captures lack ecPointFormats / compressCertificateAlgorithms.
         // Their absence must not produce false-positive diffs.
-        const profile = getProfile("chrome-140" as ProfileId);
+        const profile = getProfile("chrome-140");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,
@@ -654,7 +653,7 @@ describe("validateProfileAgainstCapture — ecPointFormats and compressCertifica
     it("does not diff when the profile omits these fields", () => {
         // firefox-120 has no impersonation fields; a capture that includes them
         // should not cause false-positive diffs.
-        const profile = getProfile("firefox-120" as ProfileId);
+        const profile = getProfile("firefox-120");
         const expected = buildExpectedClientHello(profile, "example.com");
         const capture: TlsCapture = {
             cipherSuites: expected.cipherSuites,

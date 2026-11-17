@@ -1,8 +1,9 @@
 # @browsercore/profiles
 
 [![npm version](https://img.shields.io/npm/v/@browsercore/profiles)](https://www.npmjs.com/package/@browsercore/profiles)
-[![coverage](https://img.shields.io/endpoint?url=https://jverneuer.github.io/browsercore-profiles/badge.json)](https://github.com/jverneuer/browsercore-profiles/blob/main/COVERAGE.md)
-[![lint](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-profiles/ci.yml?label=lint)](https://github.com/jverneuer/browsercore-profiles/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/endpoint?url=https://jverneuer.github.io/browsercore-profiles/badge.json)](https://jverneuer.github.io/browsercore-profiles/COVERAGE.md)
+[![CI](https://img.shields.io/github/actions/workflow/status/jverneuer/browsercore-profiles/ci.yml?label=ci)](https://github.com/jverneuer/browsercore-profiles/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@browsercore/profiles.svg)](LICENSE)
 
 Browser fingerprint definitions (TLS / HTTP/2 / HTTP/1.1). Pure data — no protocol implementation lives here. Higher layers read these definitions and translate them into bytes, header order, and SETTINGS frames.
 
@@ -27,9 +28,8 @@ npm install @browsercore/profiles
 
 ```ts
 import { getProfile, listProfiles, registerProfile } from "@browsercore/profiles";
-import type { ProfileId } from "@browsercore/profiles";
 
-const chrome = getProfile("chrome-140" as ProfileId);
+const chrome = getProfile("chrome-140"); // registry ids are bare literals — no cast
 console.log(chrome.tls.cipherSuites); // ordered cipher list
 console.log(chrome.http2.settings); // HTTP/2 SETTINGS frame values
 
@@ -37,6 +37,8 @@ const all = listProfiles(); // ["chrome-120", "chrome-128", ...] — insertion o
 
 registerProfile(myCustomProfile); // extensibility hook
 ```
+
+**Canonical id types (0.2.6).** `ProfileId` is no longer declared in this package — `@browsercore/contracts` 0.2.6 (`src/models.ts`) is its canonical home, and `@browsercore/profiles` re-exports the canonical definition: the closed set of registry-shipped ids widened with `(string & Record<never, never>)`, so known ids keep literal autocomplete and typo-flagging while runtime-registered custom ids (`registerProfile`) stay assignable. `RegisteredProfileId` — the closed registry set — is declared here as a verbatim mirror of contracts' union (contracts declares it but deliberately does not export the name at its package root); `tests/canonical-id.test.ts` pins it to the registry data so it cannot drift. The former package-local brand (`string & { __brand: "ProfileId" }`) is gone: consumers that passed string literals (fetch, tls, browsersmith) compile unchanged — without the `as ProfileId` casts the brand used to demand. Unknown ids are guarded at runtime: `getProfile` throws `UnknownProfileError` for any id not in the registry.
 
 ## Public API
 
@@ -59,7 +61,8 @@ registerProfile(myCustomProfile); // extensibility hook
 | `Http2Settings` | interface | HTTP/2 numeric settings (RFC 9113 §6.5.1) |
 | `Http2Priority` | interface | Stream priority descriptor |
 | `Http1Profile` | interface | Default headers, header order, accept-encoding |
-| `ProfileId` | branded type | Opaque profile identifier (`"chrome-140"`) |
+| `ProfileId` | type alias | Canonical profile identifier re-exported from `@browsercore/contracts` — registry ids + custom registered ids (`"chrome-140"`) |
+| `RegisteredProfileId` | literal union | Closed set of registry-shipped ids (mirrors `@browsercore/contracts` `src/models.ts`) |
 | `ProfileName` | literal union | `"chrome" \| "firefox" \| "safari" \| "edge"` |
 | `ChromeProfiles` / `FirefoxProfiles` / `SafariProfiles` / `EdgeProfiles` | const maps | Per-browser profile definitions |
 | `assertNever()` | function | Exhaustiveness check for switches over unions |

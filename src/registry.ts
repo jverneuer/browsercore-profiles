@@ -35,10 +35,12 @@ for (const profile of Object.values(EdgeProfiles)) {
 }
 
 /**
- * Look up a profile by its branded id.
+ * Look up a profile by its canonical {@link ProfileId}.
  *
  * Built-in profiles (chrome, firefox, safari, edge) are always available.
  * Custom profiles registered via {@link registerProfile} are returned here too.
+ * The id is validated at RUNTIME — a typo of a registry id throws
+ * {@link UnknownProfileError} here, whatever the static type admitted.
  *
  * @param id - The {@link ProfileId} to look up.
  * @returns The matching {@link BrowserProfile}.
@@ -46,7 +48,7 @@ for (const profile of Object.values(EdgeProfiles)) {
  *
  * @example
  * ```ts
- * const chrome = getProfile("chrome-140" as ProfileId);
+ * const chrome = getProfile("chrome-140");
  * console.log(chrome.tls.cipherSuites);
  * ```
  *
@@ -94,7 +96,7 @@ export function listProfiles(): ReadonlyArray<ProfileId> {
  * @example
  * ```ts
  * registerProfile({
- *     id: "chrome-141" as ProfileId,
+ *     id: "chrome-141",
  *     name: "chrome",
  *     version: "141.0.0.0",
  *     tls: { ... },

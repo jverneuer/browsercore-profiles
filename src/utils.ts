@@ -35,7 +35,7 @@ export function assertNever(x: never): never {
 import type { ProfileId } from "./types.js";
 
 /**
- * Build a branded {@link ProfileId} from a browser name + version.
+ * Build a canonical {@link ProfileId} from a browser name + version.
  *
  * The canonical id format is `"${name}-${version}"`, e.g. `"chrome-140"`.
  * The version is the major version only — patch-level differences within a
@@ -43,16 +43,17 @@ import type { ProfileId } from "./types.js";
  *
  * @param name - Browser family name, e.g. `"chrome"`.
  * @param version - Major version string, e.g. `"140"`.
- * @returns A branded {@link ProfileId}.
+ * @returns A {@link ProfileId} (the widened canonical union — known ids
+ *   autocomplete; unknown ids are still runtime-validated by the registry).
  *
  * @example
  * ```ts
- * createId("chrome", "140"); // ProfileId<"chrome-140">
- * createId("firefox", "128"); // ProfileId<"firefox-128">
+ * createId("chrome", "140"); // "chrome-140"
+ * createId("firefox", "128"); // "firefox-128"
  * ```
  *
  * @since 0.1.0
  */
 export function createId(name: string, version: string): ProfileId {
-    return `${name}-${version}` as ProfileId;
+    return `${name}-${version}`;
 }

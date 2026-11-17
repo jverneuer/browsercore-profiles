@@ -1,0 +1,38 @@
+{
+    // Dual typecheck gate (run by `npm run typecheck`): compiles src/ AND the
+    // tests so type-level proofs (tests/canonical-id.test.ts) are enforced by
+    // CI, not just by vitest's transpile-only run.
+    //
+    // `exclude` is OVERRIDDEN here on purpose: it is inherited from
+    // ./tsconfig.json, whose exclude list drops "tests" — without this
+    // override the `include` below would match nothing and the gate would
+    // silently typecheck zero test files.
+    //
+    // The six legacy test files excluded below predate test-typechecking and
+    // are not yet clean under the strict family flags (TS4111 index-signature
+    // access, TS2375 exactOptionalPropertyTypes captures, TS18048/TS2532
+    // possibly-undefined). Hardening them is tracked follow-up; every other
+    // test file — including the canonical-id compile proofs — IS typechecked.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "declaration": false,
+        "declarationMap": false,
+        "sourceMap": false,
+        "rootDir": "."
+    },
+    "include": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "tests/codes.test.ts",
+        "tests/profiles-chrome.test.ts",
+        "tests/profiles-data.test.ts",
+        "tests/profiles-firefox.test.ts",
+        "tests/utils.test.ts",
+        "tests/validate.test.ts"
+    ]
+}

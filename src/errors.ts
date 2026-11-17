@@ -15,7 +15,7 @@
  * @example
  * ```ts
  * try {
- *     const profile = getProfile("chrome-999" as ProfileId);
+ *     const profile = getProfile("chrome-999");
  * } catch (e) {
  *     if (e instanceof UnknownProfileError) {
  *         // fall back to a known profile...
@@ -57,7 +57,7 @@ export class ProfileError extends Error {
  * @example
  * ```ts
  * try {
- *     getProfile("chrome-000" as ProfileId);
+ *     getProfile("chrome-000");
  * } catch (e) {
  *     if (e instanceof UnknownProfileError) {
  *         console.error(`No profile for id: ${e.profileId}`);

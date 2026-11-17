@@ -27,7 +27,7 @@
  * randomizes the actual 0x?a?a values per RFC 8701.
  */
 
-import type { BrowserProfile, ProfileId } from "../types.js";
+import type { BrowserProfile } from "../types.js";
 
 /** TLS 1.3 GREASE placeholder cipher (0x?a?a) Chrome inserts at the top of the list. */
 const GREASE = "TLS_GREASE_RESERVED_0";
@@ -139,7 +139,7 @@ const chromeCipherSuites: readonly string[] = [
 ];
 
 export const chrome120: BrowserProfile = {
-    id: "chrome-120" as ProfileId,
+    id: "chrome-120",
     name: "chrome",
     version: "120.0.6099.71",
     tls: {
@@ -172,7 +172,7 @@ export const chrome120: BrowserProfile = {
 };
 
 export const chrome128: BrowserProfile = {
-    id: "chrome-128" as ProfileId,
+    id: "chrome-128",
     name: "chrome",
     version: "128.0.6613.137",
     tls: {
@@ -205,7 +205,7 @@ export const chrome128: BrowserProfile = {
 };
 
 export const chrome140: BrowserProfile = {
-    id: "chrome-140" as ProfileId,
+    id: "chrome-140",
     name: "chrome",
     version: "140.0.7339.18",
     tls: {

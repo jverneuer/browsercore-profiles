@@ -10,7 +10,7 @@
  * via {@link chromeExtensionOrder} (captured via curl_cffi against tls.peet.ws).
  */
 
-import type { BrowserProfile, ProfileId } from "../types.js";
+import type { BrowserProfile } from "../types.js";
 import { chromeExtensionOrder, chromeHttp2Settings } from "./chrome.js";
 
 /** TLS 1.3 GREASE placeholder cipher (0x?a?a) Edge inserts at the top of the list. */
@@ -107,7 +107,7 @@ const EDGE_CIPHERS: readonly string[] = [
 ];
 
 export const edge120: BrowserProfile = {
-    id: "edge-120" as ProfileId,
+    id: "edge-120",
     name: "edge",
     version: "120.0.2210.91",
     tls: {
@@ -138,7 +138,7 @@ export const edge120: BrowserProfile = {
 };
 
 export const edge128: BrowserProfile = {
-    id: "edge-128" as ProfileId,
+    id: "edge-128",
     name: "edge",
     version: "128.0.2739.70",
     tls: {
